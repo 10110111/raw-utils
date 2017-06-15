@@ -62,37 +62,6 @@ void printImageHistogram(const ushort (*img)[4], int size)
     formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue);
 }
 
-void printBayerRGBGHistogram(LibRaw& libRaw)
-{
-    const ushort*const img=libRaw.imgdata.rawdata.raw_image;
-    const auto& sizes=libRaw.imgdata.sizes;
-    const int marginTop=sizes.top_margin;
-    const int marginLeft=sizes.left_margin;
-    const int stride=sizes.raw_pitch;
-
-    constexpr auto histSize=std::numeric_limits<std::remove_reference_t<decltype(img[0])>>::max();
-    std::vector<int> histogramRed(histSize);
-    std::vector<int> histogramGreen1(histSize);
-    std::vector<int> histogramGreen2(histSize);
-    std::vector<int> histogramBlue(histSize);
-    std::cerr << "Computing histogram...\n";
-    for(int y=0;y<sizes.height;++y)
-    {
-        for(int x=0;x<sizes.width;++x)
-        {
-            const auto pixel=img[(y+marginTop)*stride/2+(x+marginLeft)];
-            switch(libRaw.COLOR(y,x))
-            {
-            case 0: ++histogramRed[pixel]; break;
-            case 1: ++histogramGreen1[pixel]; break;
-            case 2: ++histogramBlue[pixel]; break;
-            case 3: ++histogramGreen2[pixel]; break;
-            }
-        }
-    }
-    formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue);
-}
-
 #ifndef DISABLE_BMP_OUTPUT
 #pragma pack(push,1)
 struct BitmapHeader
@@ -245,16 +214,8 @@ int main(int argc, char** argv)
     std::cerr << "iSize: " << sizes.iwidth << "x" << sizes.iheight << "\n";
     std::cerr << "Pixel aspect: " << sizes.pixel_aspect << "\n";
 
-    const auto*const rimg=libRaw.imgdata.rawdata.raw_image;
-    if(false && rimg)
-    {
-        printBayerRGBGHistogram(libRaw);
-    }
-    else
-    {
-        std::cerr << "Convering raw data to image...\n";
-        libRaw.raw2image();
-        printImageHistogram(libRaw.imgdata.image,sizes.iwidth*sizes.iheight);
-        writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.maximum);
-    }
+    std::cerr << "Convering raw data to image...\n";
+    libRaw.raw2image();
+    printImageHistogram(libRaw.imgdata.image,sizes.iwidth*sizes.iheight);
+    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.maximum);
 }
