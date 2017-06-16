@@ -3,11 +3,15 @@
 #include <iostream>
 #include <sstream>
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
+#include <cassert>
 #include <vector>
 #include <limits>
 #include <cmath>
 
 using std::uint8_t;
+using std::size_t;
 
 inline int usage(const char* argv0, int returnValue)
 {
@@ -84,6 +88,31 @@ struct BitmapHeader
 };
 #pragma pack(pop)
 
+class ByteBuffer
+{
+    using size_type=std::vector<uint8_t>::size_type;
+    std::vector<uint8_t> bytes;
+    size_type offset=0;
+public:
+    ByteBuffer(size_type count)
+        : bytes(count)
+    {
+    }
+    void resize(size_type count)
+    {
+        bytes.resize(count);
+    }
+    void write(const void* data, size_type count)
+    {
+        assert(offset+count<=bytes.size());
+        std::memcpy(bytes.data()+offset,data,count);
+        offset+=count;
+    }
+    size_type size() const { return bytes.size(); }
+    size_type tellp() const { return offset; }
+    const char* data() const { return reinterpret_cast<const char*>(bytes.data()); }
+};
+
 void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
 {
     BitmapHeader header={};
@@ -97,91 +126,42 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
     header.bpp=24;
 
     const auto col=[max](ushort p)->uint8_t{return std::min(255l,std::lround(255.*p/max));};
-    const auto alignScanLine=[](std::ofstream& file)
+    const auto alignScanLine=[](ByteBuffer& bytes)
     {
         constexpr auto scanLineAlignment=4;
         const char align[scanLineAlignment-1]={};
-        const auto alignSize=(sizeof header-unsigned(file.tellp()))%scanLineAlignment;
-        file.write(align,alignSize);
+        const auto alignSize=(sizeof header-bytes.tellp())%scanLineAlignment;
+        bytes.write(align,alignSize);
     };
+#define WRITE_BMP_DATA_TO_FILE(ANNOTATION,FILENAME,BLUE,GREEN,RED)  \
+    do {                                                            \
+        std::cerr << ANNOTATION;                                    \
+        ByteBuffer bytes(header.fileSize);                          \
+        bytes.write(&header,sizeof header);                         \
+        for(int y=h-1;y>=0;--y)                                     \
+        {                                                           \
+            for(int x=0;x<w;++x)                                    \
+            {                                                       \
+                const auto pixel=data[x+y*w];                       \
+                const uint8_t vals[3]={BLUE,GREEN,RED};             \
+                bytes.write(vals,sizeof vals);                      \
+            }                                                       \
+            alignScanLine(bytes);                                   \
+        }                                                           \
+        std::ofstream file(FILENAME,std::ios::binary);              \
+        file.write(bytes.data(),bytes.size());                      \
+    } while(0)
 
-    {
-        std::cerr << "Writing red channel to file...\n";
-        std::ofstream file("/tmp/outfileRed.bmp",std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header),sizeof header);
-        for(int y=h-1;y>=0;--y)
-        {
-            for(int x=0;x<w;++x)
-            {
-                const auto pixel=data[x+y*w];
-                const uint8_t vals[3]={col(0),col(0),col(pixel[0])};
-                file.write(reinterpret_cast<const char*>(vals),sizeof vals);
-            }
-            alignScanLine(file);
-        }
-    }
-    {
-        std::cerr << "Writing blue channel to file...\n";
-        std::ofstream file("/tmp/outfileBlue.bmp",std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header),sizeof header);
-        for(int y=h-1;y>=0;--y)
-        {
-            for(int x=0;x<w;++x)
-            {
-                const auto pixel=data[x+y*w];
-                const uint8_t vals[3]={col(pixel[2]),col(0),col(0)};
-                file.write(reinterpret_cast<const char*>(vals),sizeof vals);
-            }
-            alignScanLine(file);
-        }
-    }
-    {
-        std::cerr << "Writing green1 channel to file...\n";
-        std::ofstream file("/tmp/outfileGreen1.bmp",std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header),sizeof header);
-        for(int y=h-1;y>=0;--y)
-        {
-            for(int x=0;x<w;++x)
-            {
-                const auto pixel=data[x+y*w];
-                const uint8_t vals[3]={col(0),col(pixel[1]),col(0)};
-                file.write(reinterpret_cast<const char*>(vals),sizeof vals);
-            }
-            alignScanLine(file);
-        }
-    }
-    {
-        std::cerr << "Writing green2 channel to file...\n";
-        std::ofstream file("/tmp/outfileGreen2.bmp",std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header),sizeof header);
-        for(int y=h-1;y>=0;--y)
-        {
-            for(int x=0;x<w;++x)
-            {
-                const auto pixel=data[x+y*w];
-                const uint8_t vals[3]={col(0),col(pixel[3]),col(0)};
-                file.write(reinterpret_cast<const char*>(vals),sizeof vals);
-            }
-            alignScanLine(file);
-        }
-    }
-    {
-        std::cerr << "Writing combined-channel data to file...\n";
-        std::ofstream file("/tmp/outfile-combined.bmp",std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header),sizeof header);
-        for(int y=h-1;y>=0;--y)
-        {
-            for(int x=0;x<w;++x)
-            {
-                const auto pixel=data[x+y*w];
-                const uint8_t vals[3]={col(pixel[2]),
-                                       uint8_t(col(pixel[3])+col(pixel[1])),
-                                       col(pixel[0])};
-                file.write(reinterpret_cast<const char*>(vals),sizeof vals);
-            }
-            alignScanLine(file);
-        }
-    }
+    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixel[0]));
+    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixel[2]),col(0),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixel[1]),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixel[3]),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing combined-channel data channel to file...\n",
+                           "/tmp/outfile-combined.bmp",
+                           col(pixel[2]),
+                           uint8_t(col(pixel[3])+col(pixel[1])),
+                           col(pixel[0]));
+
 }
 #else
 #define writeBMP(d,w,h,m)
