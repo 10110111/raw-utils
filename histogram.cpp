@@ -123,7 +123,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
     header.dataOffset=sizeof header;
     header.bitmapInfoHeaderSize=40;
     header.width=w;
-    header.height=h;
+    header.height=-h;
     header.numOfPlanes=1;
     header.bpp=24;
 
@@ -140,7 +140,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
         std::cerr << ANNOTATION;                                    \
         ByteBuffer bytes(header.fileSize);                          \
         bytes.write(&header,sizeof header);                         \
-        for(int y=h-1;y>=0;--y)                                     \
+        for(int y=0;y<h;++y)                                        \
         {                                                           \
             for(int x=0;x<w;++x)                                    \
             {                                                       \
