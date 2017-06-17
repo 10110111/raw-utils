@@ -113,6 +113,8 @@ public:
     const char* data() const { return reinterpret_cast<const char*>(bytes.data()); }
 };
 
+double clampRGB(double x){return std::max(0.,std::min(255.,x));}
+uint8_t toSRGB(uint8_t x){return std::pow(x/255.,1/2.2)*255;}
 void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
 {
     BitmapHeader header={};
@@ -125,7 +127,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
     header.numOfPlanes=1;
     header.bpp=24;
 
-    const auto col=[max](ushort p)->uint8_t{return std::min(255l,std::lround(255.*p/max));};
+    const auto col=[max](ushort p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/max)));};
     const auto alignScanLine=[](ByteBuffer& bytes)
     {
         constexpr auto scanLineAlignment=4;
