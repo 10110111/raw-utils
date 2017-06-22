@@ -189,6 +189,7 @@ int main(int argc, char** argv)
     std::cerr << "Make: " << idata.make << "\n";
     std::cerr << "Model: " << idata.model << "\n";
     std::cerr << "Colors: " << idata.colors << "\n";
+    std::cerr << "Color components: " << idata.cdesc << "\n";
     std::cerr << "Raw size: " << sizes.raw_width << "x" << sizes.raw_height << "\n";
     std::cerr << "Visible size: " << sizes.width << "x" << sizes.height << "\n";
     std::cerr << "Pixel value maximum: " << libRaw.imgdata.rawdata.color.maximum << "\n";
