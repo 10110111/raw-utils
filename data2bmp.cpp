@@ -64,7 +64,7 @@ public:
 
 double clampRGB(double x){return std::max(0.,std::min(255.,x));}
 uint8_t toSRGB(uint8_t x){return std::pow(x/255.,1/2.2)*255;}
-void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
+void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const unsigned black, const unsigned white)
 {
     BitmapHeader header={};
     header.signature=0x4d42;
@@ -76,7 +76,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
     header.numOfPlanes=1;
     header.bpp=24;
 
-    const auto col=[max](ushort p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/max)));};
+    const auto col=[black,white](ushort p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/(white-black))));};
     const auto alignScanLine=[](ByteBuffer& bytes)
     {
         constexpr auto scanLineAlignment=4;
@@ -84,6 +84,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
         const auto alignSize=(sizeof header-bytes.tellp())%scanLineAlignment;
         bytes.write(align,alignSize);
     };
+    const auto clampAndSubB=[black,white](ushort p){return (p>white ? white : p<black ? black : p)-black; };
 #define WRITE_BMP_DATA_TO_FILE(ANNOTATION,FILENAME,BLUE,GREEN,RED)  \
     do {                                                            \
         std::cerr << ANNOTATION;                                    \
@@ -93,7 +94,10 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
         {                                                           \
             for(int x=0;x<w;++x)                                    \
             {                                                       \
-                const auto pixel=data[x+y*w];                       \
+                const auto pixelR =clampAndSubB(data[x+y*w][0]);    \
+                const auto pixelG1=clampAndSubB(data[x+y*w][1]);    \
+                const auto pixelB =clampAndSubB(data[x+y*w][2]);    \
+                const auto pixelG2=clampAndSubB(data[x+y*w][3]);    \
                 const uint8_t vals[3]={BLUE,GREEN,RED};             \
                 bytes.write(vals,sizeof vals);                      \
             }                                                       \
@@ -103,15 +107,15 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
         file.write(bytes.data(),bytes.size());                      \
     } while(0)
 
-    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixel[0]));
-    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixel[2]),col(0),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixel[1]),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixel[3]),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
+    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data channel to file...\n",
                            "/tmp/outfile-combined.bmp",
-                           col(pixel[2]),
-                           uint8_t(col(pixel[3])+col(pixel[1])),
-                           col(pixel[0]));
+                           col(pixelB),
+                           uint8_t(col(pixelG1)+col(pixelG2)),
+                           col(pixelR));
 
 }
 
@@ -135,5 +139,5 @@ int main(int argc, char** argv)
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
-    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.maximum);
+    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.black,libRaw.imgdata.rawdata.color.maximum);
 }
