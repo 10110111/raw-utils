@@ -169,6 +169,27 @@ void writeImagePlanesToBMP(ushort (*data)[4], int w, int h, int max)
 #define writeBMP(d,w,h,m)
 #endif
 
+template<typename T, size_t N, size_t M>
+inline void printMatrix(std::ostream& stream, T(&matrix)[N][M])
+{
+    for(size_t i=0;i<N;++i)
+        for(size_t j=0;j<M;++j)
+        {
+            stream << matrix[i][j];
+            if(j<M-1)
+                stream << "\t";
+            else
+                stream << "\n";
+        }
+}
+
+template<typename T, size_t N>
+inline void printArray(std::ostream& stream, T (&array)[N])
+{
+    for(size_t i=0;i<N;++i)
+        stream << array[i] << "\t";
+}
+
 int main(int argc, char** argv)
 {
     if(argc!=2)
@@ -196,6 +217,15 @@ int main(int argc, char** argv)
     std::cerr << "Margins{left: " << sizes.left_margin << ", top: " << sizes.top_margin << "}\n";
     std::cerr << "iSize: " << sizes.iwidth << "x" << sizes.iheight << "\n";
     std::cerr << "Pixel aspect: " << sizes.pixel_aspect << "\n";
+    std::cerr << "black: " << libRaw.imgdata.rawdata.color.black << "\n";
+
+    std::cerr << "cmatrix:\n"; printMatrix(std::cerr,libRaw.imgdata.rawdata.color.cmatrix);
+    std::cerr << "rgb_cam:\n"; printMatrix(std::cerr,libRaw.imgdata.rawdata.color.rgb_cam);
+    std::cerr << "cam_xyz:\n"; printMatrix(std::cerr,libRaw.imgdata.rawdata.color.cam_xyz);
+    std::cerr << "white:\n";   printMatrix(std::cerr,libRaw.imgdata.rawdata.color.white);
+    std::cerr << "cam_mul: "; printArray(std::cerr,libRaw.imgdata.rawdata.color.cam_mul); std::cerr << "\n";
+    std::cerr << "pre_mul: "; printArray(std::cerr,libRaw.imgdata.rawdata.color.pre_mul); std::cerr << "\n";
+    std::cerr << "cblack: ";  printArray(std::cerr,libRaw.imgdata.rawdata.color.cblack); std::cerr << "\n";
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
