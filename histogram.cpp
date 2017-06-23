@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 #include <limits>
+#include <cassert>
 
 using std::size_t;
 
@@ -41,7 +42,7 @@ void formatHistogram(std::vector<int> const& histogramRed,
     std::cout << str.str();
 }
 
-void printImageHistogram(const ushort (*img)[4], int size)
+void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white)
 {
     constexpr auto histSize=std::numeric_limits<std::remove_reference_t<decltype(img[0][0])>>::max();
     std::vector<int> histogramRed(histSize);
@@ -49,13 +50,21 @@ void printImageHistogram(const ushort (*img)[4], int size)
     std::vector<int> histogramGreen2(histSize);
     std::vector<int> histogramBlue(histSize);
     std::cerr << "Computing histogram...\n";
-    for(int i=0;i<size;++i)
+    for(int y=0;y<h;++y)
     {
-        const auto*const pixel=img[i];
-        ++histogramRed[pixel[0]];
-        ++histogramGreen1[pixel[1]];
-        ++histogramBlue[pixel[2]];
-        ++histogramGreen2[pixel[3]];
+        for(int x=0;x<w;++x)
+        {
+            const auto colIndex=libRaw.FC(y,x);
+            const auto pixel=img[x+y*w][colIndex];
+            switch(colIndex)
+            {
+            case 0: ++histogramRed[pixel]; break;
+            case 1: ++histogramGreen1[pixel]; break;
+            case 2: ++histogramBlue[pixel]; break;
+            case 3: ++histogramGreen2[pixel]; break;
+            default: assert(!"Must not get here!");
+            }
+        }
     }
     formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue);
 }
@@ -80,5 +89,5 @@ int main(int argc, char** argv)
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
-    printImageHistogram(libRaw.imgdata.image,sizes.iwidth*sizes.iheight);
+    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum);
 }
