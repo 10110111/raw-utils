@@ -44,7 +44,7 @@ void formatHistogram(std::vector<int> const& histogramRed,
 
 void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white)
 {
-    const auto histSize=white-black;
+    const auto histSize=white-black+1;
     std::vector<int> histogramRed(histSize);
     std::vector<int> histogramGreen1(histSize);
     std::vector<int> histogramGreen2(histSize);
