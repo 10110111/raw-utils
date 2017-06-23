@@ -1,4 +1,5 @@
 #include <libraw/libraw.h>
+#include <algorithm>
 #include <iostream>
 #include <cstdint>
 #include <cstddef>
@@ -64,7 +65,7 @@ public:
 
 double clampRGB(double x){return std::max(0.,std::min(255.,x));}
 uint8_t toSRGB(uint8_t x){return std::pow(x/255.,1/2.2)*255;}
-void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const unsigned black, const unsigned white)
+void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const unsigned black, const unsigned white, const float (&rgbCoefs)[4])
 {
     BitmapHeader header={};
     header.signature=0x4d42;
@@ -85,6 +86,10 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         bytes.write(align,alignSize);
     };
     const auto clampAndSubB=[black,white](ushort p){return (p>white ? white : p<black ? black : p)-black; };
+    const auto rgbCoefR =rgbCoefs[0];
+    const auto rgbCoefG1=rgbCoefs[1];
+    const auto rgbCoefB =rgbCoefs[2];
+    const auto rgbCoefG2=rgbCoefs[3];
 #define WRITE_BMP_DATA_TO_FILE(ANNOTATION,FILENAME,BLUE,GREEN,RED)  \
     do {                                                            \
         std::cerr << ANNOTATION;                                    \
@@ -94,10 +99,10 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         {                                                           \
             for(int x=0;x<w;++x)                                    \
             {                                                       \
-                const auto pixelR =clampAndSubB(data[x+y*w][0]);    \
-                const auto pixelG1=clampAndSubB(data[x+y*w][1]);    \
-                const auto pixelB =clampAndSubB(data[x+y*w][2]);    \
-                const auto pixelG2=clampAndSubB(data[x+y*w][3]);    \
+                const auto pixelR =rgbCoefR *clampAndSubB(data[x+y*w][0]);    \
+                const auto pixelG1=rgbCoefG1*clampAndSubB(data[x+y*w][1]);    \
+                const auto pixelB =rgbCoefB *clampAndSubB(data[x+y*w][2]);    \
+                const auto pixelG2=rgbCoefG2*clampAndSubB(data[x+y*w][3]);    \
                 const uint8_t vals[3]={BLUE,GREEN,RED};             \
                 bytes.write(vals,sizeof vals);                      \
             }                                                       \
@@ -114,7 +119,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data channel to file...\n",
                            "/tmp/outfile-combined.bmp",
                            col(pixelB),
-                           uint8_t(col(pixelG1)+col(pixelG2)),
+                           uint8_t((col(pixelG1)+col(pixelG2))*0.5),
                            col(pixelR));
 
 }
@@ -139,5 +144,8 @@ int main(int argc, char** argv)
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
-    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.black,libRaw.imgdata.rawdata.color.maximum);
+    const auto& cam_mul=libRaw.imgdata.color.cam_mul;
+    const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
+    const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
+    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.black,libRaw.imgdata.rawdata.color.maximum,rgbCoefs);
 }
