@@ -44,18 +44,31 @@ void formatHistogram(std::vector<int> const& histogramRed,
 
 void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white)
 {
-    constexpr auto histSize=std::numeric_limits<std::remove_reference_t<decltype(img[0][0])>>::max();
+    const auto histSize=white-black;
     std::vector<int> histogramRed(histSize);
     std::vector<int> histogramGreen1(histSize);
     std::vector<int> histogramGreen2(histSize);
     std::vector<int> histogramBlue(histSize);
     std::cerr << "Computing histogram...\n";
+    int tooBlackPixelCount=0, tooWhitePixelCount=0;
     for(int y=0;y<h;++y)
     {
         for(int x=0;x<w;++x)
         {
             const auto colIndex=libRaw.FC(y,x);
-            const auto pixel=img[x+y*w][colIndex];
+            auto pixelRaw=img[x+y*w][colIndex];
+            if(pixelRaw<black)
+            {
+                ++tooBlackPixelCount;
+                pixelRaw=black;
+            }
+            else if(pixelRaw>white)
+            {
+                ++tooWhitePixelCount;
+                pixelRaw=white;
+            }
+
+            const auto pixel=pixelRaw-black;
             switch(colIndex)
             {
             case 0: ++histogramRed[pixel]; break;
@@ -66,6 +79,10 @@ void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, co
             }
         }
     }
+    if(tooBlackPixelCount)
+        std::cerr << "Warning: " << tooBlackPixelCount << " pixels have values less than black level\n";
+    if(tooWhitePixelCount)
+        std::cerr << "Warning: " << tooWhitePixelCount << " pixels have values greater than white level\n";
     formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue);
 }
 
