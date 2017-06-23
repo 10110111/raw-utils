@@ -1,4 +1,5 @@
 #include <libraw/libraw.h>
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <cstddef>
@@ -42,8 +43,13 @@ void formatHistogram(std::vector<int> const& histogramRed,
     std::cout << str.str();
 }
 
-void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white)
+void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white, const float (&rgbCoefs)[4])
 {
+    const auto rgbCoefR =rgbCoefs[0];
+    const auto rgbCoefG1=rgbCoefs[1];
+    const auto rgbCoefB =rgbCoefs[2];
+    const auto rgbCoefG2=rgbCoefs[3];
+
     const auto histSize=white-black+1;
     std::vector<int> histogramRed(histSize);
     std::vector<int> histogramGreen1(histSize);
@@ -71,10 +77,10 @@ void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, co
             const auto pixel=pixelRaw-black;
             switch(colIndex)
             {
-            case 0: ++histogramRed[pixel]; break;
-            case 1: ++histogramGreen1[pixel]; break;
-            case 2: ++histogramBlue[pixel]; break;
-            case 3: ++histogramGreen2[pixel]; break;
+            case 0: ++histogramRed[std::lround(pixel*rgbCoefR)]; break;
+            case 1: ++histogramGreen1[std::lround(pixel*rgbCoefG1)]; break;
+            case 2: ++histogramBlue[std::lround(pixel*rgbCoefB)]; break;
+            case 3: ++histogramGreen2[std::lround(pixel*rgbCoefG2)]; break;
             default: assert(!"Must not get here!");
             }
         }
@@ -106,5 +112,8 @@ int main(int argc, char** argv)
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
-    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum);
+    const auto& cam_mul=libRaw.imgdata.color.cam_mul;
+    const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
+    const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
+    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum,rgbCoefs);
 }
