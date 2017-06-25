@@ -112,6 +112,44 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         file.write(bytes.data(),bytes.size());                      \
     } while(0)
 
+    {
+        std::cerr << "Writing merged-color sRGB image to file...\n";
+
+        const int stride=w;
+        const int w_=w/2, h_=h/2;
+        const int w=w_, h=h_;
+        BitmapHeader header={};
+        header.signature=0x4d42;
+        header.fileSize=((w+3)&~3)*h*3+sizeof header;
+        header.dataOffset=sizeof header;
+        header.bitmapInfoHeaderSize=40;
+        header.width=w;
+        header.height=h;
+        header.numOfPlanes=1;
+        header.bpp=24;
+
+        ByteBuffer bytes(header.fileSize);
+        bytes.write(&header,sizeof header);
+        enum {RED,GREEN1,BLUE,GREEN2};
+        for(int y=h-1;y>=0;--y)
+        {
+            for(int x=0;x<w;++x)
+            {
+                const auto X=x*2, Y=y*2;
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][RED]);
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][GREEN1]);
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][GREEN2]);
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BLUE]);
+                const auto green=(pixelTopRight+pixelBottomLeft)/2.;
+                const auto red=pixelTopLeft, blue=pixelBottomRight;
+                const uint8_t vals[3]={col(blue),col(green),col(red)};
+                bytes.write(vals,sizeof vals);
+            }
+            alignScanLine(bytes);
+        }
+        std::ofstream file("/tmp/output-merged.bmp",std::ios::binary);
+        file.write(bytes.data(),bytes.size());
+    }
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
                            "/tmp/outfile-combined.bmp",
                            col(pixelB),
