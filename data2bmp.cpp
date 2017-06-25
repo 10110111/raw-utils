@@ -112,15 +112,15 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         file.write(bytes.data(),bytes.size());                      \
     } while(0)
 
-    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
-    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data channel to file...\n",
                            "/tmp/outfile-combined.bmp",
                            col(pixelB),
                            uint8_t((col(pixelG1)+col(pixelG2))*0.5),
                            col(pixelR));
+    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
+    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
+    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
 
 }
 
