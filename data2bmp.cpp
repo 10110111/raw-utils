@@ -112,7 +112,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         file.write(bytes.data(),bytes.size());                      \
     } while(0)
 
-    WRITE_BMP_DATA_TO_FILE("Writing combined-channel data channel to file...\n",
+    WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
                            "/tmp/outfile-combined.bmp",
                            col(pixelB),
                            uint8_t((col(pixelG1)+col(pixelG2))*0.5),
