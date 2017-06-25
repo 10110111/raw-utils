@@ -115,7 +115,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
                            "/tmp/outfile-combined.bmp",
                            col(pixelB),
-                           uint8_t((col(pixelG1)+col(pixelG2))*0.5),
+                           col((pixelG1+pixelG2)*0.5),
                            col(pixelR));
     WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
     WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
