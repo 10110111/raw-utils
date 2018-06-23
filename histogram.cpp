@@ -6,6 +6,7 @@
 #include <vector>
 #include <limits>
 #include <cassert>
+#include <cmath>
 
 using std::size_t;
 
