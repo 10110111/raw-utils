@@ -12,39 +12,59 @@ using std::size_t;
 
 inline int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: " << argv0 << " filename\n";
+    std::cerr << "Usage: " << argv0 << " [--mma|--csv] filename\n";
     return returnValue;
 }
+
+enum class PrintFormat
+{
+    Mathematica,
+    CSV,
+};
 
 void formatHistogram(std::vector<int> const& histogramRed,
                      std::vector<int> const& histogramGreen1,
                      std::vector<int> const& histogramGreen2,
-                     std::vector<int> const& histogramBlue)
+                     std::vector<int> const& histogramBlue,
+                     PrintFormat format)
 {
-    std::cerr << "Formatting histogram...\n";
+    switch(format)
+    {
+    case PrintFormat::Mathematica:
+    {
+        std::cerr << "Formatting histogram...\n";
 
-    std::ostringstream str;
-    str << "histogram={\n{";
-    for(auto v : histogramRed)
-        str << int(v) << ",";
-    str.seekp(-1,str.cur);
-    str << "},\n{";
-    for(auto v : histogramGreen1)
-        str << int(v) << ",";
-    str.seekp(-1,str.cur);
-    str << "},\n{";
-    for(auto v : histogramBlue)
-        str << int(v) << ",";
-    str.seekp(-1,str.cur);
-    str << "},\n{";
-    for(auto v : histogramGreen2)
-        str << int(v) << ",";
-    str.seekp(-1,str.cur);
-    str << "}\n};\n";
-    std::cout << str.str();
+        std::ostringstream str;
+        str << "histogram={\n{";
+        for(auto v : histogramRed)
+            str << int(v) << ",";
+        str.seekp(-1,str.cur);
+        str << "},\n{";
+        for(auto v : histogramGreen1)
+            str << int(v) << ",";
+        str.seekp(-1,str.cur);
+        str << "},\n{";
+        for(auto v : histogramBlue)
+            str << int(v) << ",";
+        str.seekp(-1,str.cur);
+        str << "},\n{";
+        for(auto v : histogramGreen2)
+            str << int(v) << ",";
+        str.seekp(-1,str.cur);
+        str << "}\n};\n";
+        std::cout << str.str();
+        break;
+    }
+    case PrintFormat::CSV:
+        for(unsigned i=0;i<histogramRed.size();++i)
+            std::cout << histogramRed[i] << ',' << histogramGreen1[i] << ',' << histogramGreen2[i] << ',' << histogramBlue[i] << '\n';
+        break;
+    }
 }
 
-void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h, const unsigned black, const unsigned white, const float (&rgbCoefs)[4])
+void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h,
+                         const unsigned black, const unsigned white, const float (&rgbCoefs)[4],
+                         PrintFormat format)
 {
     const auto rgbCoefR =rgbCoefs[0];
     const auto rgbCoefG1=rgbCoefs[1];
@@ -90,14 +110,31 @@ void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, co
         std::cerr << "Warning: " << tooBlackPixelCount << " pixels have values less than black level\n";
     if(tooWhitePixelCount)
         std::cerr << "Warning: " << tooWhitePixelCount << " pixels have values greater than white level\n";
-    formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue);
+    formatHistogram(histogramRed,histogramGreen1,histogramGreen2,histogramBlue,format);
 }
 
 int main(int argc, char** argv)
 {
-    if(argc!=2)
+    if(argc!=2 && argc!=3)
         return usage(argv[0],1);
     const char* filename=argv[1];
+    PrintFormat format=PrintFormat::CSV;
+    if(argc>2)
+    {
+        const auto mma=std::string("--mma");
+        const auto csv=std::string("--csv");
+        if(argv[1]==mma)
+        {
+            format=PrintFormat::Mathematica;
+            filename=argv[2];
+        }
+        else if(argv[2]==mma)
+        {
+            format=PrintFormat::Mathematica;
+        }
+        else if(argv[1]!=csv && argv[2]!=csv)
+            return usage(argv[0],1);
+    }
     LibRaw libRaw;
     libRaw.open_file(filename);
     const auto& sizes=libRaw.imgdata.sizes;
@@ -116,5 +153,5 @@ int main(int argc, char** argv)
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum,rgbCoefs);
+    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum,rgbCoefs,format);
 }
