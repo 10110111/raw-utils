@@ -42,7 +42,7 @@ void printScanLineData(LibRaw& libRaw, const ushort (*img)[4], const int w, cons
     assert(valuesGreen1.size()==valuesGreen2.size());
     assert(valuesGreen2.size()==valuesBlue.size());
     for(unsigned i=0;i<valuesRed.size();++i)
-        std::cout << valuesRed[i] << ',' << valuesGreen1[i] << ',' << valuesGreen2[i] << ',' << valuesBlue[i] << '\n';
+        std::cout << i << ',' << valuesRed[i] << ',' << valuesGreen1[i] << ',' << valuesGreen2[i] << ',' << valuesBlue[i] << '\n';
 }
 
 int main(int argc, char** argv)
