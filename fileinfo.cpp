@@ -39,7 +39,7 @@ template<typename T, size_t N>
 void printArray(std::ostream& stream, T (&array)[N])
 {
     for(size_t i=0;i<N;++i)
-        stream << array[i] << "\t";
+        stream << array[i] << "  ";
 }
 
 int main(int argc, char** argv)
