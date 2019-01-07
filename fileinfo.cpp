@@ -4,14 +4,14 @@
 
 using std::size_t;
 
-inline int usage(const char* argv0, int returnValue)
+int usage(const char* argv0, int returnValue)
 {
     std::cerr << "Usage: " << argv0 << " filename\n";
     return returnValue;
 }
 
 template<typename T, size_t N, size_t M>
-inline void printMatrix(std::ostream& stream, T(&matrix)[N][M])
+void printMatrix(std::ostream& stream, T(&matrix)[N][M])
 {
     for(size_t i=0;i<N;++i)
         for(size_t j=0;j<M;++j)
@@ -25,7 +25,7 @@ inline void printMatrix(std::ostream& stream, T(&matrix)[N][M])
 }
 
 template<typename T, size_t N>
-inline void printArray(std::ostream& stream, T (&array)[N])
+void printArray(std::ostream& stream, T (&array)[N])
 {
     for(size_t i=0;i<N;++i)
         stream << array[i] << "\t";
