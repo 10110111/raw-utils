@@ -1,5 +1,6 @@
 #include <libraw/libraw.h>
 #include <iostream>
+#include <iomanip>
 #include <cstddef>
 
 using std::size_t;
@@ -10,18 +11,28 @@ int usage(const char* argv0, int returnValue)
     return returnValue;
 }
 
+template<typename T>
+unsigned getNumLength(T number)
+{
+    std::ostringstream s;
+    s << number;
+    return s.str().size();
+}
+
 template<typename T, size_t N, size_t M>
 void printMatrix(std::ostream& stream, T(&matrix)[N][M])
 {
+    size_t colWidths[M]={};
     for(size_t i=0;i<N;++i)
         for(size_t j=0;j<M;++j)
-        {
-            stream << matrix[i][j];
-            if(j<M-1)
-                stream << "\t";
-            else
-                stream << "\n";
-        }
+            colWidths[j]=std::max(colWidths[j],getNumLength(matrix[i][j]));
+
+    for(size_t i=0;i<N;++i)
+    {
+        for(size_t j=0;j<M;++j)
+            stream << std::setw(colWidths[j]+2) << std::left << matrix[i][j];
+        stream << "\n";
+    }
 }
 
 template<typename T, size_t N>
