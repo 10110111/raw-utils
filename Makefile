@@ -1,4 +1,4 @@
-all: histogram fileinfo data2bmp
+all: histogram fileinfo data2bmp scanline average
 
 histogram: Makefile histogram.cpp
 	${CXX} -std=c++14 histogram.cpp -o histogram -lraw -g -O3 -march=native ${CXXFLAGS}
