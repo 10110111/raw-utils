@@ -13,6 +13,7 @@ using std::size_t;
 
 bool needTrueSRGB=false;
 bool needFakeSRGB=false;
+bool needChromaOnlyFile=false;
 bool needCombinedFile=false;
 bool needRedFile=false;
 bool needGreen1File=false;
@@ -24,6 +25,8 @@ inline int usage(const char* argv0, int returnValue)
     std::cerr << "Usage: [options...] " << argv0 << " filename\n";
     std::cerr << "Options:\n"
               << "  -srgb,--srgb        Create an sRGB image by merging RGGB data and applying the cam2rgb conversion matrix\n"
+              << "  -chroma,--chroma    Create an sRGB image by merging RGGB data applying the cam2rgb\n"
+                 "                       conversion matrix and stripping brightness info\n"
               << "  --fake-srgb         Similar to -srgb, but without applying the conversion matrix\n"
               << "  --combined          Create a file containing RGGB data on the Bayer grid, coded by sRGB colors\n"
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
@@ -130,7 +133,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         std::cerr << " written to \"" << FILENAME << "\"\n";        \
     } while(0)
 
-    if(needFakeSRGB || needTrueSRGB)
+    if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile)
     {
         std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...";
 
@@ -155,6 +158,10 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         ByteBuffer bytes_sRGB(header.fileSize);
         if(needTrueSRGB)
             bytes_sRGB.write(&header,sizeof header);
+        // Raw RGB data converted to sRGB and written to sRGB pixels in another output image, but without brightness information
+        ByteBuffer bytes_chroma(header.fileSize);
+        if(needChromaOnlyFile)
+            bytes_chroma.write(&header,sizeof header);
         enum {RED,GREEN1,BLUE,GREEN2};
         for(int y=h-1;y>=0;--y)
         {
@@ -178,11 +185,20 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                 const uint8_t vals_sRGB[3]={col(srgblB),col(srgblG),col(srgblR)};
                 if(needTrueSRGB)
                     bytes_sRGB.write(vals_sRGB,sizeof vals_sRGB);
+
+                const auto chromaR=(white-black)*srgblR/(srgblR+srgblG+srgblB);
+                const auto chromaG=(white-black)*srgblG/(srgblR+srgblG+srgblB);
+                const auto chromaB=(white-black)*srgblB/(srgblR+srgblG+srgblB);
+                const uint8_t vals_chroma[3]={col(chromaB),col(chromaG),col(chromaR)};
+                if(needChromaOnlyFile)
+                    bytes_chroma.write(vals_chroma,sizeof vals_chroma);
             }
             if(needFakeSRGB)
                 alignScanLine(bytes);
             if(needTrueSRGB)
                 alignScanLine(bytes_sRGB);
+            if(needChromaOnlyFile)
+                alignScanLine(bytes_chroma);
         }
         if(needFakeSRGB)
         {
@@ -196,6 +212,13 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             const char filename[]="/tmp/output-merged-srgb.bmp";
             std::ofstream file_sRGB(filename,std::ios::binary);
             file_sRGB.write(bytes_sRGB.data(),bytes_sRGB.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
+        if(needChromaOnlyFile)
+        {
+            const char filename[]="/tmp/output-merged-chroma-only.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes_chroma.data(),bytes_chroma.size());
             std::cerr << " written to \"" << filename << "\"\n";
         }
     }
@@ -224,6 +247,7 @@ int main(int argc, char** argv)
         const std::string arg(argv[i]);
         if(arg=="-srgb" || arg=="--srgb") needTrueSRGB=true;
         else if(arg=="--fake-srgb")       needFakeSRGB=true;
+        else if(arg=="--chroma"||arg=="-chroma")   needChromaOnlyFile=true;
         else if(arg=="--combined" || arg=="-comb") needCombinedFile=true;
         else if(arg=="-r" || arg=="--red") needRedFile=true;
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
