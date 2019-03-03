@@ -11,9 +11,25 @@
 using std::uint8_t;
 using std::size_t;
 
+bool needTrueSRGB=false;
+bool needFakeSRGB=false;
+bool needCombinedFile=false;
+bool needRedFile=false;
+bool needGreen1File=false;
+bool needGreen2File=false;
+bool needBlueFile=false;
+
 inline int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: " << argv0 << " filename\n";
+    std::cerr << "Usage: [options...] " << argv0 << " filename\n";
+    std::cerr << "Options:\n"
+              << "  -srgb,--srgb        Create an sRGB image by merging RGGB data and applying the cam2rgb conversion matrix\n"
+              << "  --fake-srgb         Similar to -srgb, but without applying the conversion matrix\n"
+              << "  --combined          Create a file containing RGGB data on the Bayer grid, coded by sRGB colors\n"
+              << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
+              << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
+              << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
+              << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n";
     return returnValue;
 }
 
@@ -111,10 +127,12 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         }                                                           \
         std::ofstream file(FILENAME,std::ios::binary);              \
         file.write(bytes.data(),bytes.size());                      \
+        std::cerr << " written to \"" << FILENAME << "\"\n";        \
     } while(0)
 
+    if(needFakeSRGB || needTrueSRGB)
     {
-        std::cerr << "Writing merged-color sRGB image to files...\n";
+        std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...\n";
 
         const int stride=w;
         const int w_=w/2, h_=h/2;
@@ -131,10 +149,12 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 
         // Raw RGB data mapped to sRGB pixels in the output image
         ByteBuffer bytes(header.fileSize);
-        bytes.write(&header,sizeof header);
+        if(needFakeSRGB)
+            bytes.write(&header,sizeof header);
         // Raw RGB data converted to sRGB and written to sRGB pixels in another output image
         ByteBuffer bytes_sRGB(header.fileSize);
-        bytes_sRGB.write(&header,sizeof header);
+        if(needTrueSRGB)
+            bytes_sRGB.write(&header,sizeof header);
         enum {RED,GREEN1,BLUE,GREEN2};
         for(int y=h-1;y>=0;--y)
         {
@@ -148,42 +168,77 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                 const auto green=(pixelTopRight+pixelBottomLeft)/2.;
                 const auto red=pixelTopLeft, blue=pixelBottomRight;
                 const uint8_t vals[3]={col(blue),col(green),col(red)};
-                bytes.write(vals,sizeof vals);
+                if(needFakeSRGB)
+                    bytes.write(vals,sizeof vals);
 
                 const auto& cam2srgb=colorData.rgb_cam;
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
                 const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;
                 const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;
                 const uint8_t vals_sRGB[3]={col(srgblB),col(srgblG),col(srgblR)};
-                bytes_sRGB.write(vals_sRGB,sizeof vals_sRGB);
+                if(needTrueSRGB)
+                    bytes_sRGB.write(vals_sRGB,sizeof vals_sRGB);
             }
-            alignScanLine(bytes);
-            alignScanLine(bytes_sRGB);
+            if(needFakeSRGB)
+                alignScanLine(bytes);
+            if(needTrueSRGB)
+                alignScanLine(bytes_sRGB);
         }
-        std::ofstream file("/tmp/output-merged.bmp",std::ios::binary);
-        file.write(bytes.data(),bytes.size());
-        std::ofstream file_sRGB("/tmp/output-merged-srgb.bmp",std::ios::binary);
-        file_sRGB.write(bytes_sRGB.data(),bytes_sRGB.size());
+        if(needFakeSRGB)
+        {
+            const char filename[]="/tmp/output-merged.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes.data(),bytes.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
+        if(needTrueSRGB)
+        {
+            const char filename[]="/tmp/output-merged-srgb.bmp";
+            std::ofstream file_sRGB(filename,std::ios::binary);
+            file_sRGB.write(bytes_sRGB.data(),bytes_sRGB.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
     }
-    WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
-                           "/tmp/outfile-combined.bmp",
-                           col(pixelB),
-                           col((pixelG1+pixelG2)*0.5),
-                           col(pixelR));
-    WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
-    WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
-    WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
+    if(needCombinedFile)
+        WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
+                               "/tmp/outfile-combined.bmp",
+                               col(pixelB),
+                               col((pixelG1+pixelG2)*0.5),
+                               col(pixelR));
+    if(needRedFile)
+        WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
+    if(needBlueFile)
+        WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
+    if(needGreen1File)
+        WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
+    if(needGreen2File)
+        WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
 
 }
 
 int main(int argc, char** argv)
 {
-    if(argc!=2)
-        return usage(argv[0],1);
-    const char* filename=argv[1];
+    std::string filename;
+    for(int i=1;i<argc;++i)
+    {
+        const std::string arg(argv[i]);
+        if(arg=="-srgb" || arg=="--srgb") needTrueSRGB=true;
+        else if(arg=="--fake-srgb")       needFakeSRGB=true;
+        else if(arg=="--combined" || arg=="-comb") needCombinedFile=true;
+        else if(arg=="-r" || arg=="--red") needRedFile=true;
+        else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
+        else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
+        else if(arg=="-b" || arg=="--blue") needBlueFile=true;
+        else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
+        else if(!arg.empty() && arg[0]!='-') filename=arg;
+        else
+        {
+            std::cerr << "Unknown option " << arg << "\n";
+            return usage(argv[0],1);
+        }
+    }
     LibRaw libRaw;
-    libRaw.open_file(filename);
+    libRaw.open_file(filename.c_str());
     const auto& sizes=libRaw.imgdata.sizes;
 
     std::cerr << "Unpacking raw data...\n";
