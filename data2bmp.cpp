@@ -65,8 +65,9 @@ public:
 
 double clampRGB(double x){return std::max(0.,std::min(255.,x));}
 uint8_t toSRGB(uint8_t x){return std::pow(x/255.,1/2.2)*255;}
-void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const unsigned black, const unsigned white, const float (&rgbCoefs)[4])
+void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData)
 {
+    const unsigned black=colorData.black, white=colorData.maximum;
     BitmapHeader header={};
     header.signature=0x4d42;
     header.fileSize=((w+3)&~3)*h*3+sizeof header;
@@ -77,7 +78,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
     header.numOfPlanes=1;
     header.bpp=24;
 
-    const auto col=[black,white](ushort p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/(white-black))));};
+    const auto col=[black,white](float p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/(white-black))));};
     const auto alignScanLine=[](ByteBuffer& bytes)
     {
         constexpr auto scanLineAlignment=4;
@@ -113,7 +114,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
     } while(0)
 
     {
-        std::cerr << "Writing merged-color sRGB image to file...\n";
+        std::cerr << "Writing merged-color sRGB image to files...\n";
 
         const int stride=w;
         const int w_=w/2, h_=h/2;
@@ -128,8 +129,12 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
         header.numOfPlanes=1;
         header.bpp=24;
 
+        // Raw RGB data mapped to sRGB pixels in the output image
         ByteBuffer bytes(header.fileSize);
         bytes.write(&header,sizeof header);
+        // Raw RGB data converted to sRGB and written to sRGB pixels in another output image
+        ByteBuffer bytes_sRGB(header.fileSize);
+        bytes_sRGB.write(&header,sizeof header);
         enum {RED,GREEN1,BLUE,GREEN2};
         for(int y=h-1;y>=0;--y)
         {
@@ -144,11 +149,21 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const un
                 const auto red=pixelTopLeft, blue=pixelBottomRight;
                 const uint8_t vals[3]={col(blue),col(green),col(red)};
                 bytes.write(vals,sizeof vals);
+
+                const auto& cam2srgb=colorData.rgb_cam;
+                const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
+                const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;
+                const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;
+                const uint8_t vals_sRGB[3]={col(srgblB),col(srgblG),col(srgblR)};
+                bytes_sRGB.write(vals_sRGB,sizeof vals_sRGB);
             }
             alignScanLine(bytes);
+            alignScanLine(bytes_sRGB);
         }
         std::ofstream file("/tmp/output-merged.bmp",std::ios::binary);
         file.write(bytes.data(),bytes.size());
+        std::ofstream file_sRGB("/tmp/output-merged-srgb.bmp",std::ios::binary);
+        file_sRGB.write(bytes_sRGB.data(),bytes_sRGB.size());
     }
     WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
                            "/tmp/outfile-combined.bmp",
@@ -185,5 +200,5 @@ int main(int argc, char** argv)
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.rawdata.color.black,libRaw.imgdata.rawdata.color.maximum,rgbCoefs);
+    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,rgbCoefs,libRaw.imgdata.rawdata.color);
 }
