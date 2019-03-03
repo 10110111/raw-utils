@@ -132,7 +132,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 
     if(needFakeSRGB || needTrueSRGB)
     {
-        std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...\n";
+        std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...";
 
         const int stride=w;
         const int w_=w/2, h_=h/2;
@@ -200,19 +200,19 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         }
     }
     if(needCombinedFile)
-        WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...\n",
+        WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...",
                                "/tmp/outfile-combined.bmp",
                                col(pixelB),
                                col((pixelG1+pixelG2)*0.5),
                                col(pixelR));
     if(needRedFile)
-        WRITE_BMP_DATA_TO_FILE("Writing red channel to file...\n","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
+        WRITE_BMP_DATA_TO_FILE("Writing red channel to file...","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
     if(needBlueFile)
-        WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...\n","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
     if(needGreen1File)
-        WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...\n","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
     if(needGreen2File)
-        WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...\n","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
 
 }
 
