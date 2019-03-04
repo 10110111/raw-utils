@@ -20,6 +20,8 @@ bool needGreen1File=false;
 bool needGreen2File=false;
 bool needBlueFile=false;
 
+float pixelScale=1;
+
 inline int usage(const char* argv0, int returnValue)
 {
     std::cerr << "Usage: [options...] " << argv0 << " filename\n";
@@ -32,7 +34,8 @@ inline int usage(const char* argv0, int returnValue)
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
-              << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n";
+              << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
+              << "  -s R,--scale R      Scale pixel values by factor R\n";
     return returnValue;
 }
 
@@ -97,7 +100,10 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     header.numOfPlanes=1;
     header.bpp=24;
 
-    const auto col=[black,white](float p)->uint8_t{return toSRGB(clampRGB(std::lround(255.*p/(white-black))));};
+    const auto col=[black,white](float p)->uint8_t
+        {
+            return toSRGB(clampRGB(std::lround(255.*pixelScale*p/(white-black))));
+        };
     const auto alignScanLine=[](ByteBuffer& bytes)
     {
         constexpr auto scanLineAlignment=4;
@@ -254,6 +260,22 @@ int main(int argc, char** argv)
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
         else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
+        else if(arg=="-s" || arg=="--scale")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            const std::string arg(argv[i]);
+            std::size_t pos=0;
+            try { pixelScale=std::stof(arg,&pos); } catch(...) {}
+            if(pos!=arg.length())
+            {
+                std::cerr << "Failed to parse pixel value multiplier\n";
+                return 1;
+            }
+        }
         else if(!arg.empty() && arg[0]!='-') filename=arg;
         else
         {
