@@ -85,8 +85,8 @@ public:
     const char* data() const { return reinterpret_cast<const char*>(bytes.data()); }
 };
 
-double clampRGB(double x){return std::max(0.,std::min(255.,x));}
-uint8_t toSRGB(uint8_t x){return std::pow(x/255.,1/2.2)*255;}
+float clampRGB(float x){return std::max(0.f,std::min(1.f,x));}
+float toSRGB(float x){return std::pow(x,1/2.2f)*255;}
 void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData)
 {
     const unsigned black=colorData.black, white=colorData.maximum;
@@ -102,7 +102,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 
     const auto col=[black,white](float p)->uint8_t
         {
-            return toSRGB(clampRGB(std::lround(255.*pixelScale*p/(white-black))));
+            return toSRGB(clampRGB(pixelScale*p/(white-black)));
         };
     const auto alignScanLine=[](ByteBuffer& bytes)
     {
