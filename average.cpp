@@ -61,10 +61,10 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], int xmin, int xma
             const auto pixel=pixelRaw-colorData.black;
             switch(colIndex)
             {
-            case 0: red+=pixel*rgbCoefR; break;
-            case 1: green1+=pixel*rgbCoefG1; break;
-            case 2: blue+=pixel*rgbCoefB; break;
-            case 3: green2+=pixel*rgbCoefG2; break;
+            case 0: red+=pixel; break;
+            case 1: green1+=pixel; break;
+            case 2: blue+=pixel; break;
+            case 3: green2+=pixel; break;
             default: assert(!"Must not get here!");
             }
         }
@@ -94,7 +94,14 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], int xmin, int xma
         std::cerr << "Warning: " << whitePixelCount << " pixels are overexposed\n";
         misexposure=true;
     }
-    std::cout << "Mean camera R,G1,G2,B: " << red << ',' << green1 << ',' << green2 << ',' << blue << '\n';
+    std::cout << "Mean raw R,G1,G2,B minus black level: " << red << ',' << green1 << ',' << green2 << ',' << blue << '\n';
+
+    red*=rgbCoefR;
+    green1*=rgbCoefG1;
+    green2*=rgbCoefG2;
+    blue*=rgbCoefB;
+    std::cout << "Mean balanced R,G1,G2,B: " << red << ',' << green1 << ',' << green2 << ',' << blue << '\n';
+
     const auto green=(green1+green2)/2;
     const auto& cam2srgb=colorData.rgb_cam;
     const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
