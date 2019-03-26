@@ -12,7 +12,7 @@ int usage(const char* argv0, int returnValue)
 }
 
 template<typename T>
-unsigned getNumLength(T number)
+std::size_t getNumLength(T number)
 {
     std::ostringstream s;
     s << number;
