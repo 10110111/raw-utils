@@ -13,13 +13,13 @@ using std::size_t;
 
 int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: " << argv0 << " filename [--error-on-misexposure]\n";
+    std::cerr << "Usage: " << argv0 << " filename [--xrange min..max] [--yrange min..max] [--error-on-misexposure]\n";
     return returnValue;
 }
 
 bool errorOnMisexposure=false;
 
-bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h,
+bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], int xmin, int xmax, int ymin, int ymax,
                        libraw_colordata_t const& colorData, const float (&rgbCoefs)[4])
 {
     const auto rgbCoefR =rgbCoefs[0];
@@ -27,13 +27,15 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], const int w, cons
     const auto rgbCoefB =rgbCoefs[2];
     const auto rgbCoefG2=rgbCoefs[3];
 
+    const auto w=libRaw.imgdata.sizes.iwidth;
+
     bool misexposure=false;
     double red=0, green1=0, green2=0, blue=0;
     int tooBlackPixelCount=0, tooWhitePixelCount=0;
     int blackPixelCount=0, whitePixelCount=0;
-    for(int y=0;y<h;++y)
+    for(int y=ymin;y<ymax;++y)
     {
-        for(int x=0;x<w;++x)
+        for(int x=xmin;x<xmax;++x)
         {
             const auto colIndex=libRaw.FC(y,x);
             auto pixelRaw=img[x+y*w][colIndex];
@@ -67,10 +69,11 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], const int w, cons
             }
         }
     }
-    red/=w*h;
-    green1/=w*h;
-    green2/=w*h;
-    blue/=w*h;
+    const auto count=double(ymax-ymin)*(xmax-xmin);
+    red/=count;
+    green1/=count;
+    green2/=count;
+    blue/=count;
     if(tooBlackPixelCount)
     {
         std::cerr << "Warning: " << tooBlackPixelCount << " pixels have values less than black level\n";
@@ -108,20 +111,97 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], const int w, cons
     return errorOnMisexposure && misexposure;
 }
 
+int requireParam(std::string const& opt)
+{
+    std::cerr << "Option " << opt << " requires parameter\nUse --help to see usage\n";
+    return 1;
+}
+
+std::pair<unsigned,unsigned> parseRange(std::string const& str)
+{
+    std::size_t pos;
+    try
+    {
+        const auto min=std::stoul(str, &pos);
+        if(pos+2>=str.size() || str.substr(pos,2)!="..")
+            throw "bad format";
+
+        const auto maxStr=str.substr(pos+2);
+        const auto max=std::stoul(maxStr, &pos);
+        if(pos!=maxStr.size())
+            throw "bad format: trailing characters found";
+
+        return {min,max};
+    }
+    catch(const char* err)
+    {
+        throw std::runtime_error(err);
+    }
+    catch(...)
+    {
+        throw std::runtime_error("can't parse a number");
+    }
+}
+
 int main(int argc, char** argv)
 {
-    if(argc!=2 && argc!=3)
+    if(argc==1)
         return usage(argv[0],1);
-    const char* filename=argv[1];
-    if(argc==3)
+    std::string filename;
+    int xmin=0, ymin=0, xmax=INT_MAX, ymax=INT_MAX;
+    for(int i=1;i<argc;++i)
     {
-        if(!std::strcmp(argv[2],"--error-on-misexposure"))
+        const auto arg=std::string(argv[i]);
+        if(arg=="--error-on-misexposure")
+        {
             errorOnMisexposure=true;
+        }
+        else if(arg=="-xrange" || arg=="--xrange")
+        {
+            ++i;
+            if(i>=argc) return requireParam(arg);
+            const auto arg=std::string(argv[i]);
+            try
+            {
+                std::tie(xmin,xmax)=parseRange(arg);
+            }
+            catch(std::exception const& e)
+            {
+                std::cerr << "Parsing x range failed: " << e.what() << "\n";
+                return 1;
+            }
+        }
+        else if(arg=="-yrange" || arg=="--yrange")
+        {
+            ++i;
+            if(i>=argc) return requireParam(arg);
+            const auto arg=std::string(argv[i]);
+            try
+            {
+                std::tie(ymin,ymax)=parseRange(arg);
+            }
+            catch(std::exception const& e)
+            {
+                std::cerr << "Parsing y range failed: " << e.what() << "\n";
+                return 1;
+            }
+        }
+        else if(arg=="--help" || arg=="-h")
+        {
+            return usage(argv[0],0);
+        }
+        else if(arg.substr(0,1)!="-")
+        {
+            filename=arg;
+        }
         else
-            return usage(argv[0],1);
+        {
+            std::cerr << "Unknown option " << arg << "\n";
+            return 1;
+        }
     }
     LibRaw libRaw;
-    libRaw.open_file(filename);
+    libRaw.open_file(filename.c_str());
     const auto& sizes=libRaw.imgdata.sizes;
 
     std::cerr << "Unpacking raw data...\n";
@@ -136,6 +216,8 @@ int main(int argc, char** argv)
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    return printAverageColor(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color,rgbCoefs);
+    if(xmax>sizes.iwidth ) xmax=sizes.iwidth;
+    if(ymax>sizes.iheight) ymax=sizes.iheight;
+    return printAverageColor(libRaw,libRaw.imgdata.image,xmin,xmax,ymin,ymax,libRaw.imgdata.color,rgbCoefs);
 }
 
