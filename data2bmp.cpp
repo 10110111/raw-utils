@@ -111,7 +111,8 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         const auto alignSize=(sizeof header-bytes.tellp())%scanLineAlignment;
         bytes.write(align,alignSize);
     };
-    const auto clampAndSubB=[black,white](ushort p){return (p>white ? white : p<black ? black : p)-black; };
+    const auto clampAndSubB=[black,white](ushort p, bool& overexposed)
+        {return (p>white-10 ? overexposed=true,white : p<black ? black : p)-black; };
     const auto rgbCoefR =rgbCoefs[0];
     const auto rgbCoefG1=rgbCoefs[1];
     const auto rgbCoefB =rgbCoefs[2];
@@ -125,11 +126,14 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         {                                                           \
             for(int x=0;x<w;++x)                                    \
             {                                                       \
-                const auto pixelR =rgbCoefR *clampAndSubB(data[x+y*w][0]);    \
-                const auto pixelG1=rgbCoefG1*clampAndSubB(data[x+y*w][1]);    \
-                const auto pixelB =rgbCoefB *clampAndSubB(data[x+y*w][2]);    \
-                const auto pixelG2=rgbCoefG2*clampAndSubB(data[x+y*w][3]);    \
-                const uint8_t vals[3]={BLUE,GREEN,RED};             \
+                bool overexposed=false;                             \
+                const auto pixelR =rgbCoefR *clampAndSubB(data[x+y*w][0],overexposed);    \
+                const auto pixelG1=rgbCoefG1*clampAndSubB(data[x+y*w][1],overexposed);    \
+                const auto pixelB =rgbCoefB *clampAndSubB(data[x+y*w][2],overexposed);    \
+                const auto pixelG2=rgbCoefG2*clampAndSubB(data[x+y*w][3],overexposed);    \
+                const uint8_t vals[3]={overexposed?uint8_t(255):BLUE,   \
+                                       overexposed?uint8_t(255):GREEN,  \
+                                       overexposed?uint8_t(255):RED};   \
                 bytes.write(vals,sizeof vals);                      \
             }                                                       \
             alignScanLine(bytes);                                   \
@@ -174,13 +178,16 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             for(int x=0;x<w;++x)
             {
                 const auto X=x*2, Y=y*2;
-                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][RED]);
-                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][GREEN1]);
-                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][GREEN2]);
-                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BLUE]);
+                bool overexposed=false;
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][RED]   ,overexposed);
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][GREEN1],overexposed);
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][GREEN2],overexposed);
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BLUE]  ,overexposed);
                 const auto green=(pixelTopRight+pixelBottomLeft)/2.;
                 const auto red=pixelTopLeft, blue=pixelBottomRight;
-                const uint8_t vals[3]={col(blue),col(green),col(red)};
+                const uint8_t vals[3]={overexposed?uint8_t(255):col(blue),
+                                       overexposed?uint8_t(255):col(green),
+                                       overexposed?uint8_t(255):col(red)};
                 if(needFakeSRGB)
                     bytes.write(vals,sizeof vals);
 
@@ -188,14 +195,18 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
                 const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;
                 const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;
-                const uint8_t vals_sRGB[3]={col(srgblB),col(srgblG),col(srgblR)};
+                const uint8_t vals_sRGB[3]={overexposed?uint8_t(255):col(srgblB),
+                                            overexposed?uint8_t(255):col(srgblG),
+                                            overexposed?uint8_t(255):col(srgblR)};
                 if(needTrueSRGB)
                     bytes_sRGB.write(vals_sRGB,sizeof vals_sRGB);
 
                 const auto chromaR=(white-black)*srgblR/(srgblR+srgblG+srgblB);
                 const auto chromaG=(white-black)*srgblG/(srgblR+srgblG+srgblB);
                 const auto chromaB=(white-black)*srgblB/(srgblR+srgblG+srgblB);
-                const uint8_t vals_chroma[3]={col(chromaB),col(chromaG),col(chromaR)};
+                const uint8_t vals_chroma[3]={overexposed?uint8_t(255):col(chromaB),
+                                              overexposed?uint8_t(255):col(chromaG),
+                                              overexposed?uint8_t(255):col(chromaR)};
                 if(needChromaOnlyFile)
                     bytes_chroma.write(vals_chroma,sizeof vals_chroma);
             }
