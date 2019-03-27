@@ -38,6 +38,7 @@ inline int usage(const char* argv0, int returnValue)
               << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
               << "  -s R,--scale R      Scale pixel values by factor R\n"
               << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
+              << "  --no-coefs          Don't use cam_mul white balance coefficients, assume them all equal to one\n"
               ;
     return returnValue;
 }
@@ -262,6 +263,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 int main(int argc, char** argv)
 {
     std::string filename;
+    bool useRGBCoefs=true;
     for(int i=1;i<argc;++i)
     {
         const std::string arg(argv[i]);
@@ -273,6 +275,7 @@ int main(int argc, char** argv)
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
+        else if(arg=="--no-coefs") useRGBCoefs=false;
         else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
         else if(arg=="-s" || arg=="--scale")
         {
@@ -326,5 +329,8 @@ int main(int argc, char** argv)
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,rgbCoefs,libRaw.imgdata.rawdata.color);
+    const float noCoefs[4]={1,1,1,1};
+    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
+                          useRGBCoefs ? rgbCoefs : noCoefs,
+                          libRaw.imgdata.rawdata.color);
 }
