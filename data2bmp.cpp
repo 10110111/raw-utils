@@ -306,6 +306,8 @@ int main(int argc, char** argv)
             return usage(argv[0],1);
         }
     }
+    if(filename.empty()) return usage(argv[0],1);
+
     LibRaw libRaw;
     libRaw.open_file(filename.c_str());
     const auto& sizes=libRaw.imgdata.sizes;
