@@ -38,7 +38,9 @@ inline int usage(const char* argv0, int returnValue)
               << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
               << "  -s R,--scale R      Scale pixel values by factor R\n"
               << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
-              << "  --no-wb-coefs       Don't use cam_mul white balance coefficients, assume them all equal to one\n"
+              << "  -wb,--white-balance {as-shot|daylight|none}  Use the white balance mode specified. 'as-shot' means the white\n"
+                 "                       balance chosen by the camera (cam_mul in libraw), 'daylight' is the daylight WB (pre_mul\n"
+                 "                       in libraw), and 'none' means the coefficients will be all equal to one.\n"
               ;
     return returnValue;
 }
@@ -263,7 +265,12 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 int main(int argc, char** argv)
 {
     std::string filename;
-    bool useWBCoefs=true;
+    enum class WhiteBalance
+    {
+        Daylight,
+        AsShot,
+        None,
+    } whiteBalance=WhiteBalance::Daylight;
     for(int i=1;i<argc;++i)
     {
         const std::string arg(argv[i]);
@@ -275,7 +282,23 @@ int main(int argc, char** argv)
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
-        else if(arg=="--no-wb-coefs") useWBCoefs=false;
+        else if(arg=="-wb" || arg=="--white-balance")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            const std::string arg(argv[i]);
+            if(arg=="as-shot") whiteBalance=WhiteBalance::AsShot;
+            else if(arg=="daylight") whiteBalance=WhiteBalance::Daylight;
+            else if(arg=="none") whiteBalance=WhiteBalance::None;
+            else
+            {
+                std::cerr << "Unknown white balance mode \"" << arg << "\"\n";
+                return 1;
+            }
+        }
         else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
         else if(arg=="-s" || arg=="--scale")
         {
@@ -327,10 +350,15 @@ int main(int argc, char** argv)
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
+    const auto& pre_mul=libRaw.imgdata.color.pre_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
-    const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    const float noCoefs[4]={1,1,1,1};
+    const float asShotWBCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
+    const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
+    const float daylightWBCoefs[4]={pre_mul[0]/preMulMax,pre_mul[1]/preMulMax,pre_mul[2]/preMulMax,(pre_mul[3]==0 ? pre_mul[1] : pre_mul[3])/preMulMax};
+    const float noWBCoefs[4]={1,1,1,1};
     writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
-                          useWBCoefs ? rgbCoefs : noCoefs,
+                          whiteBalance==WhiteBalance::Daylight ? daylightWBCoefs :
+                           whiteBalance==WhiteBalance::AsShot ? asShotWBCoefs :
+                            noWBCoefs,
                           libRaw.imgdata.rawdata.color);
 }
