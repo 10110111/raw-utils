@@ -21,6 +21,7 @@ bool needGreen2File=false;
 bool needBlueFile=false;
 
 float pixelScale=1;
+std::string filePathPrefix="/tmp/outfile-";
 
 inline int usage(const char* argv0, int returnValue)
 {
@@ -35,7 +36,9 @@ inline int usage(const char* argv0, int returnValue)
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
               << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
-              << "  -s R,--scale R      Scale pixel values by factor R\n";
+              << "  -s R,--scale R      Scale pixel values by factor R\n"
+              << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
+              ;
     return returnValue;
 }
 
@@ -219,21 +222,21 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         }
         if(needFakeSRGB)
         {
-            const char filename[]="/tmp/output-merged.bmp";
+            const auto filename=filePathPrefix+"merged.bmp";
             std::ofstream file(filename,std::ios::binary);
             file.write(bytes.data(),bytes.size());
             std::cerr << " written to \"" << filename << "\"\n";
         }
         if(needTrueSRGB)
         {
-            const char filename[]="/tmp/output-merged-srgb.bmp";
+            const auto filename=filePathPrefix+"merged-srgb.bmp";
             std::ofstream file_sRGB(filename,std::ios::binary);
             file_sRGB.write(bytes_sRGB.data(),bytes_sRGB.size());
             std::cerr << " written to \"" << filename << "\"\n";
         }
         if(needChromaOnlyFile)
         {
-            const char filename[]="/tmp/output-merged-chroma-only.bmp";
+            const auto filename=filePathPrefix+"merged-chroma-only.bmp";
             std::ofstream file(filename,std::ios::binary);
             file.write(bytes_chroma.data(),bytes_chroma.size());
             std::cerr << " written to \"" << filename << "\"\n";
@@ -241,18 +244,18 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     }
     if(needCombinedFile)
         WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...",
-                               "/tmp/outfile-combined.bmp",
+                               filePathPrefix+"combined.bmp",
                                col(pixelB),
                                col((pixelG1+pixelG2)*0.5),
                                col(pixelR));
     if(needRedFile)
-        WRITE_BMP_DATA_TO_FILE("Writing red channel to file...","/tmp/outfileRed.bmp",col(0),col(0),col(pixelR));
+        WRITE_BMP_DATA_TO_FILE("Writing red channel to file...",filePathPrefix+"Red.bmp",col(0),col(0),col(pixelR));
     if(needBlueFile)
-        WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...","/tmp/outfileBlue.bmp",col(pixelB),col(0),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing blue channel to file...",filePathPrefix+"Blue.bmp",col(pixelB),col(0),col(0));
     if(needGreen1File)
-        WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...","/tmp/outfileGreen1.bmp",col(0),col(pixelG1),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...",filePathPrefix+"Green1.bmp",col(0),col(pixelG1),col(0));
     if(needGreen2File)
-        WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...","/tmp/outfileGreen2.bmp",col(0),col(pixelG2),col(0));
+        WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...",filePathPrefix+"Green2.bmp",col(0),col(pixelG2),col(0));
 
 }
 
@@ -286,6 +289,15 @@ int main(int argc, char** argv)
                 std::cerr << "Failed to parse pixel value multiplier\n";
                 return 1;
             }
+        }
+        else if(arg=="-p" || arg=="--prefix")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            filePathPrefix=argv[i];
         }
         else if(!arg.empty() && arg[0]!='-') filename=arg;
         else
