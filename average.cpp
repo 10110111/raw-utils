@@ -220,9 +220,10 @@ int main(int argc, char** argv)
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
-    const auto& cam_mul=libRaw.imgdata.color.cam_mul;
-    const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
-    const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
+    const auto& pre_mul=libRaw.imgdata.color.pre_mul;
+    const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
+    const float rgbCoefs[4]={pre_mul[0]/preMulMax,pre_mul[1]/preMulMax,pre_mul[2]/preMulMax,
+                             (pre_mul[3] ? pre_mul[3] : pre_mul[1])/preMulMax};
     if(xmax>sizes.iwidth ) xmax=sizes.iwidth;
     if(ymax>sizes.iheight) ymax=sizes.iheight;
     return printAverageColor(libRaw,libRaw.imgdata.image,xmin,xmax,ymin,ymax,libRaw.imgdata.color,rgbCoefs);
