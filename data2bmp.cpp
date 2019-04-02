@@ -93,9 +93,9 @@ public:
 
 float clampRGB(float x){return std::max(0.f,std::min(1.f,x));}
 float toSRGB(float x){return std::pow(x,1/2.2f)*255;}
-void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData)
+void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData, unsigned whiteLevel)
 {
-    const unsigned black=colorData.black, white=colorData.maximum;
+    const unsigned black=colorData.black, white=whiteLevel;
     BitmapHeader header={};
     header.signature=0x4d42;
     header.fileSize=((w+3)&~3)*h*3+sizeof header;
@@ -271,6 +271,7 @@ int main(int argc, char** argv)
         AsShot,
         None,
     } whiteBalance=WhiteBalance::Daylight;
+    unsigned customWhiteLevel=0;
     for(int i=1;i<argc;++i)
     {
         const std::string arg(argv[i]);
@@ -282,6 +283,21 @@ int main(int argc, char** argv)
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
+        else if(arg=="-w" || arg=="--white-level")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            const std::string arg(argv[i]);
+            try { customWhiteLevel=std::stoul(arg); } catch(...) {}
+            if(!customWhiteLevel)
+            {
+                std::cerr << "Bad value for custom white level\n";
+                return 1;
+            }
+        }
         else if(arg=="-wb" || arg=="--white-balance")
         {
             if(++i==argc)
@@ -360,5 +376,6 @@ int main(int argc, char** argv)
                           whiteBalance==WhiteBalance::Daylight ? daylightWBCoefs :
                            whiteBalance==WhiteBalance::AsShot ? asShotWBCoefs :
                             noWBCoefs,
-                          libRaw.imgdata.rawdata.color);
+                          libRaw.imgdata.rawdata.color,
+                          customWhiteLevel ? customWhiteLevel : libRaw.imgdata.rawdata.color.maximum);
 }
