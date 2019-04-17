@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-missing-field-initializers -Werror=return-type")
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
-find_package(Qt5 5.9 REQUIRED Core Widgets OpenGL)
+find_package(Qt5 5.10 REQUIRED Core Widgets OpenGL)
 find_package(PkgConfig REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR})
 

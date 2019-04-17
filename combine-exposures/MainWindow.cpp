@@ -244,7 +244,7 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     connect(frameView, &FrameView::wheelScrolled, this, &MainWindow::onWheelScrolled);
 
     if(!dirToOpen.empty())
-        loadFiles(dirToOpen);
+        QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
 }
 
 void MainWindow::openDir()
@@ -265,6 +265,8 @@ void MainWindow::loadFiles(std::string const& dir)
         for(auto const& dentry : filesystem::recursive_directory_iterator(dir))
         {
             currentFileBeingOpened=dentry.path().string().c_str();
+            statusBar()->showMessage(tr("Opening file \"%1\"...").arg(currentFileBeingOpened));
+            qApp->processEvents();
             lastCreatedFile=nullptr;
             // Process EXIF data
             libRaw.open_file(currentFileBeingOpened.toStdString().c_str());
@@ -273,9 +275,11 @@ void MainWindow::loadFiles(std::string const& dir)
             {
                 filesMap.clear();
                 QMessageBox::critical(this, tr("Error processing file"),tr("Failed to load EXIF data from file \"%1\": %1").arg(dentry.path().string().c_str()).arg(exifHandlerError.c_str()));
+                statusBar()->showMessage(tr("Failed to load EXIF data from a file"));
                 return;
             }
         }
+        statusBar()->clearMessage();
     }
 
     // Initialize total exposure values (using only the data we know
