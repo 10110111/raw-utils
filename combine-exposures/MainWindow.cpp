@@ -409,12 +409,38 @@ auto MainWindow::readImage(Time time) -> Image
 
 void MainWindow::onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers)
 {
-    if(modifiers) return;
+    bool preserveExposureMode=false;
+    if(modifiers==Qt::ControlModifier)
+        preserveExposureMode=true;
+    else if(modifiers!=Qt::NoModifier)
+        return;
 
-    const auto current=ui.treeView->selectionModel()->currentIndex();
-    if(!current.isValid()) return;
-    const auto newIdx = current.sibling(current.row() + (delta<0 ? 1 : -1),
-                                        current.column());
-    if(newIdx.isValid())
-        ui.treeView->selectionModel()->setCurrentIndex(newIdx, QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);
+    const auto currentIdx=ui.treeView->selectionModel()->currentIndex();
+    if(!currentIdx.isValid()) return;
+
+    const auto col=currentIdx.column();
+    const auto step = delta<0 ? 1 : -1;
+
+    QModelIndex newIdx=currentIdx.sibling(currentIdx.row()+step, col);
+    if(!newIdx.isValid()) return;
+
+    if(preserveExposureMode)
+    {
+        const auto sameValue=[](double x, double y)
+            { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
+
+        const auto shotTimeIdx=currentIdx.sibling(currentIdx.row(),FramesModel::Column::ShotTime);
+        const auto currentFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
+        while((newIdx = newIdx.sibling(newIdx.row()+step, col)).isValid())
+        {
+            const auto shotTimeIdx=newIdx.sibling(newIdx.row(),FramesModel::Column::ShotTime);
+            const auto& newFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
+            if(sameValue(newFile.aperture,currentFile.aperture) &&
+               sameValue(newFile.shutterTime,currentFile.shutterTime) &&
+               sameValue(newFile.iso,currentFile.iso))
+                break;
+        }
+        if(!newIdx.isValid()) return;
+    }
+    ui.treeView->selectionModel()->setCurrentIndex(newIdx, QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);
 }
