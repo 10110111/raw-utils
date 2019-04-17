@@ -69,6 +69,15 @@ std::map<Time,Frame> filesMap;
 Frame* lastCreatedFile=nullptr;
 QString currentFileBeingOpened;
 
+bool sameExposureMode(Frame const& a, Frame const& b)
+{
+    const auto sameValue=[](double x, double y)
+    { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
+    return sameValue(a.aperture,b.aperture) &&
+           sameValue(a.shutterTime,b.shutterTime) &&
+           sameValue(a.iso,b.iso);
+}
+
 
 static std::string exifHandlerError;
 void exifHandler([[maybe_unused]] void* context, int tag, [[maybe_unused]] int type, int count, unsigned byteOrder, void* ifp)
@@ -446,18 +455,13 @@ void MainWindow::onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers)
 
     if(preserveExposureMode)
     {
-        const auto sameValue=[](double x, double y)
-            { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
-
         const auto shotTimeIdx=currentIdx.sibling(currentIdx.row(),FramesModel::Column::ShotTime);
         const auto currentFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
         while((newIdx = newIdx.sibling(newIdx.row()+step, col)).isValid())
         {
             const auto shotTimeIdx=newIdx.sibling(newIdx.row(),FramesModel::Column::ShotTime);
             const auto& newFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
-            if(sameValue(newFile.aperture,currentFile.aperture) &&
-               sameValue(newFile.shutterTime,currentFile.shutterTime) &&
-               sameValue(newFile.iso,currentFile.iso))
+            if(sameExposureMode(newFile,currentFile))
                 break;
         }
         if(!newIdx.isValid()) return;
