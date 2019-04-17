@@ -21,8 +21,6 @@ int main(int argc, char** argv)
 {
     QApplication app(argc,argv);
 
-    if(argc==1)
-        return usage(argv[0],1);
     std::string dir;
     for(int i=1;i<argc;++i)
     {
