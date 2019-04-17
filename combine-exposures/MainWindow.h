@@ -18,6 +18,7 @@ private:
     Ui::MainWindow ui;
     FrameView* frameView;
     FramesModel* framesModel;
+    bool fileLoadingAborted=false;
 
     struct Image
     {

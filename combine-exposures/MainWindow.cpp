@@ -224,6 +224,8 @@ void exifHandler([[maybe_unused]] void* context, int tag, [[maybe_unused]] int t
 MainWindow::MainWindow(std::string const& dirToOpen)
 {
     ui.setupUi(this);
+    ui.abortLoadingBtn->setHidden(true);
+    connect(ui.abortLoadingBtn,&QPushButton::clicked, this,[this]{fileLoadingAborted=true;});
     connect(ui.action_Open_directory, &QAction::triggered, this, &MainWindow::openDir);
     connect(ui.action_Quit, &QAction::triggered, qApp, &QApplication::quit);
     ui.treeView->setModel(framesModel=new FramesModel(this));
@@ -256,6 +258,8 @@ void MainWindow::openDir()
 
 void MainWindow::loadFiles(std::string const& dir)
 {
+    fileLoadingAborted=false;
+    ui.abortLoadingBtn->setVisible(true);
     framesModel->removeRows(0,framesModel->rowCount());
     filesMap.clear();
     // Load exposure info from EXIF
@@ -267,6 +271,13 @@ void MainWindow::loadFiles(std::string const& dir)
             currentFileBeingOpened=dentry.path().string().c_str();
             statusBar()->showMessage(tr("Opening file \"%1\"...").arg(currentFileBeingOpened));
             qApp->processEvents();
+            if(fileLoadingAborted)
+            {
+                statusBar()->showMessage(tr("Loading of files aborted"));
+                filesMap.clear();
+                framesModel->removeRows(0,framesModel->rowCount());
+                return;
+            }
             lastCreatedFile=nullptr;
             // Process EXIF data
             libRaw.open_file(currentFileBeingOpened.toStdString().c_str());
@@ -280,6 +291,7 @@ void MainWindow::loadFiles(std::string const& dir)
             }
         }
         statusBar()->clearMessage();
+        ui.abortLoadingBtn->setHidden(true);
     }
 
     // Initialize total exposure values (using only the data we know
