@@ -457,13 +457,15 @@ void MainWindow::onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers)
     {
         const auto shotTimeIdx=currentIdx.sibling(currentIdx.row(),FramesModel::Column::ShotTime);
         const auto currentFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
-        while((newIdx = newIdx.sibling(newIdx.row()+step, col)).isValid())
+        do
         {
             const auto shotTimeIdx=newIdx.sibling(newIdx.row(),FramesModel::Column::ShotTime);
             const auto& newFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
             if(sameExposureMode(newFile,currentFile))
                 break;
         }
+        while((newIdx = newIdx.sibling(newIdx.row()+step, col)).isValid());
+
         if(!newIdx.isValid()) return;
     }
     ui.treeView->selectionModel()->setCurrentIndex(newIdx, QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);
