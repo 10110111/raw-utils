@@ -218,11 +218,7 @@ void FrameView::showImage(QVector<vec3> const& data, int width, int height)
     imgHeight=height;
     imageDataToLoad=data;
     imageNeedsUploading=true;
-    if(selectionPointA!=selectionPointB)
-        calcAverageAndMaxSelectedPixels(data.data(),width,height,selectionPointA,selectionPointB,
-                                        averageOfSelectedPixels,maxFromSelectedPixels);
-    else
-        averageOfSelectedPixels=vec3(1,1,1);
+    updateSelectedPixelsInfo();
     update();
 }
 
@@ -305,24 +301,27 @@ void FrameView::paintGL()
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    // Same VAO for selection rectangle, but with a different program
-    if(selectionPointA!=selectionPointB)
+    // Same VAO for selection rectangles, but with a different program
+    glUseProgram(selectionDrawProgram);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    for(const auto& selection : selections)
     {
-        glUseProgram(selectionDrawProgram);
-        const auto imgSize=vec2(imgWidth,imgHeight);
-        const auto pA=vec2(selectionPointA)*2.f/imgSize-vec2(1,1);
-        const auto pB=vec2(selectionPointB)*2.f/imgSize-vec2(1,1);
-        const auto s=(pB-pA)/2.f, t=(pA+pB)/2.f;
-        glUniformMatrix4fv(glGetUniformLocation(selectionDrawProgram,"mvp"),1,true,&mat4(vec4(s.x, 0  , 0, t.x),
-                                                                                         vec4(0  ,-s.y, 0,-t.y),
-                                                                                         vec4(0  , 0  , 1, 0  ),
-                                                                                         vec4(0  , 0  , 0, 1  ))[0][0]);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glDisable(GL_BLEND);
-        glBindVertexArray(0);
+        if(selection.pointA!=selection.pointB)
+        {
+            const auto imgSize=vec2(imgWidth,imgHeight);
+            const auto pA=vec2(selection.pointA)*2.f/imgSize-vec2(1,1);
+            const auto pB=vec2(selection.pointB)*2.f/imgSize-vec2(1,1);
+            const auto s=(pB-pA)/2.f, t=(pA+pB)/2.f;
+            glUniformMatrix4fv(glGetUniformLocation(selectionDrawProgram,"mvp"),1,true,&mat4(vec4(s.x, 0  , 0, t.x),
+                                                                                             vec4(0  ,-s.y, 0,-t.y),
+                                                                                             vec4(0  , 0  , 1, 0  ),
+                                                                                             vec4(0  , 0  , 0, 1  ))[0][0]);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
     }
+    glDisable(GL_BLEND);
+    glBindVertexArray(0);
 }
 
 vec2 FrameView::screenPosToImagePixelPos(vec2 posScr) const
@@ -335,10 +334,16 @@ vec2 FrameView::screenPosToImagePixelPos(vec2 posScr) const
     return (posScr-posVP)*sizeImg/sizeVP;
 }
 
-void FrameView::setSelectionRectangle(QPoint const& cornerA, QPoint const& cornerB)
+void FrameView::addSelectionRectangle(QPoint const& firstPoint)
 {
-    selectionPointA=screenPosToImagePixelPos(vec2(cornerA.x(),cornerA.y()));
-    selectionPointB=screenPosToImagePixelPos(vec2(cornerB.x(),cornerB.y()));
+    const auto p=screenPosToImagePixelPos(vec2(firstPoint.x(),firstPoint.y()));
+    selections.emplace_back(Selection{p,p});
+}
+
+void FrameView::updateLastSelectionRectangle(QPoint const& pointB)
+{
+    assert(!selections.empty());
+    selections.back().pointB=screenPosToImagePixelPos(vec2(pointB.x(),pointB.y()));
     update();
 }
 
@@ -349,10 +354,45 @@ void FrameView::wheelEvent(QWheelEvent* event)
 
 void FrameView::mousePressEvent(QMouseEvent* event)
 {
+    if(!(event->modifiers()&Qt::ControlModifier))
+        selections.clear();
+
     if(event->buttons()==Qt::LeftButton)
     {
-        dragStart=event->pos();
+        addSelectionRectangle(event->pos());
         dragging=true;
+    }
+}
+
+void FrameView::updateSelectedPixelsInfo()
+{
+    auto sumOfAverages=vec3(0);
+    int processedCount=0;
+    auto totalMax=vec3(0);
+    for(const auto& selection : selections)
+    {
+        if(selection.pointA!=selection.pointB)
+        {
+            vec3 average, max;
+            calcAverageAndMaxSelectedPixels(imageDataToLoad.data(),imgWidth,imgHeight,
+                                            selection.pointA,selection.pointB,
+                                            average,max);
+            sumOfAverages+=average;
+            totalMax=glm::max(max,totalMax);
+            ++processedCount;
+        }
+    }
+
+    if(processedCount)
+    {
+        maxFromSelectedPixels=totalMax;
+        averageOfSelectedPixels=sumOfAverages/float(processedCount);
+    }
+    else
+    {
+        // No-op divisors
+        maxFromSelectedPixels=vec3(1,1,1);
+        averageOfSelectedPixels=vec3(1,1,1);
     }
 }
 
@@ -360,23 +400,14 @@ void FrameView::mouseReleaseEvent(QMouseEvent* event)
 {
     if(!(event->buttons()&Qt::LeftButton)) // the button should be released, so its state should be 0
     {
-        setSelectionRectangle(dragStart,event->pos());
+        updateLastSelectionRectangle(event->pos());
         dragging=false;
-
-        if(selectionPointA!=selectionPointB)
-            calcAverageAndMaxSelectedPixels(imageDataToLoad.data(),imgWidth,imgHeight,
-                                            selectionPointA,selectionPointB,
-                                            averageOfSelectedPixels,maxFromSelectedPixels);
-        else
-        {
-            averageOfSelectedPixels=vec3(1,1,1);
-            maxFromSelectedPixels=vec3(1,1,1);
-        }
+        updateSelectedPixelsInfo();
     }
 }
 
 void FrameView::mouseMoveEvent(QMouseEvent* event)
 {
     if(dragging)
-        setSelectionRectangle(dragStart,event->pos());
+        updateLastSelectionRectangle(event->pos());
 }

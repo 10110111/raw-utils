@@ -23,8 +23,12 @@ private:
     bool overexposureMarkingEnabled=false;
     QVector<glm::vec3> imageDataToLoad;
     bool imageNeedsUploading=false;
-    // Selection in the image coordinates
-    glm::ivec2 selectionPointA=glm::ivec2(0), selectionPointB=glm::ivec2(0);
+    struct Selection
+    {
+        // Selection rectangle corners in the image coordinates (point (0,0) is top-left)
+        glm::ivec2 pointA, pointB;
+    };
+    std::vector<Selection> selections;
     QPoint dragStart;
     bool dragging=false;
     glm::vec3 averageOfSelectedPixels=glm::vec3(1,1,1);
@@ -34,6 +38,9 @@ private:
     void initShaders();
     void setupBuffers();
     void initTextures();
+    void updateSelectedPixelsInfo();
+    void addSelectionRectangle(QPoint const& firstPoint);
+    void updateLastSelectionRectangle(QPoint const& pointB);
     glm::vec2 screenPosToImagePixelPos(glm::vec2 p) const;
 public:
     FrameView(QWidget* parent=nullptr);
@@ -42,7 +49,6 @@ public:
     void setScale(double newScale);
     void setMarkOverexposure(bool enable);
     void setNormalizationMode(NormalizationMode mode);
-    void setSelectionRectangle(QPoint const& cornerA, QPoint const& cornerB);
 
 signals:
     void wheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
