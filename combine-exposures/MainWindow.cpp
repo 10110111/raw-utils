@@ -235,8 +235,12 @@ MainWindow::MainWindow(std::string const& dirToOpen)
             frameView, &FrameView::setScale);
     connect(ui.markOverexposuresCB, &QCheckBox::stateChanged, this, [this](int state)
             { frameView->setMarkOverexposure(state==Qt::Checked); });
-    connect(ui.divideByMeanCB, &QCheckBox::stateChanged, this, [this](int state)
-            { frameView->setDivideByMeanPixelBrightness(state==Qt::Checked); });
+    connect(ui.divideByOneRB, &QRadioButton::toggled, this, [this](bool checked)
+            { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::None); });
+    connect(ui.divideByAverageRB, &QRadioButton::toggled, this, [this](bool checked)
+            { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByAverage); });
+    connect(ui.divideByMaxRB, &QRadioButton::toggled, this, [this](bool checked)
+            { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByMax); });
     connect(frameView, &FrameView::wheelScrolled, this, &MainWindow::onWheelScrolled);
 
     if(!dirToOpen.empty())

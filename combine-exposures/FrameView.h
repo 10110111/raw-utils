@@ -7,20 +7,29 @@
 class FrameView : public QGLWidget
 {
     Q_OBJECT
+public:
+    enum class NormalizationMode
+    {
+        None,
+        DivideByMax,
+        DivideByAverage,
+    };
 
+private:
     GLuint vao=0, vbo=0, tex=0;
     GLuint mainProgram=0, selectionDrawProgram=0;
     GLfloat scale=1;
     int imgWidth=1, imgHeight=1;
     bool overexposureMarkingEnabled=false;
-    bool divisionByMeanPixelBrightnessEnabled=true;
     QVector<glm::vec3> imageDataToLoad;
     bool imageNeedsUploading=false;
     // Selection in the image coordinates
     glm::ivec2 selectionPointA=glm::ivec2(0), selectionPointB=glm::ivec2(0);
     QPoint dragStart;
     bool dragging=false;
-    glm::vec3 meanOfSelectedPixels=glm::vec3(1,1,1);
+    glm::vec3 averageOfSelectedPixels=glm::vec3(1,1,1);
+    glm::vec3 maxFromSelectedPixels=glm::vec3(1,1,1);
+    NormalizationMode normalizationMode=NormalizationMode::DivideByMax;
 
     void initShaders();
     void setupBuffers();
@@ -32,7 +41,7 @@ public:
     void clear();
     void setScale(double newScale);
     void setMarkOverexposure(bool enable);
-    void setDivideByMeanPixelBrightness(bool enable);
+    void setNormalizationMode(NormalizationMode mode);
     void setSelectionRectangle(QPoint const& cornerA, QPoint const& cornerB);
 
 signals:

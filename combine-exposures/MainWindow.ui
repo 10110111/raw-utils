@@ -79,7 +79,14 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
+     <item row="1" column="0">
+      <widget class="QCheckBox" name="markOverexposuresCB">
+       <property name="text">
+        <string>Mar&amp;k overexposures</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -92,21 +99,40 @@
        </property>
       </spacer>
      </item>
-     <item row="1" column="0">
-      <widget class="QCheckBox" name="markOverexposuresCB">
-       <property name="text">
-        <string>Mar&amp;k overexposures</string>
-       </property>
-      </widget>
-     </item>
      <item row="2" column="0" colspan="2">
-      <widget class="QCheckBox" name="divideByMeanCB">
-       <property name="text">
-        <string>Divide brightness by mean pixel brightness in selection</string>
+      <widget class="QGroupBox" name="groupBox">
+       <property name="title">
+        <string>Pixel values normalization mode</string>
        </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QRadioButton" name="divideByOneRB">
+          <property name="text">
+           <string>Not normalized</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="divideByAverageRB">
+          <property name="text">
+           <string>Divide by average of selected pixels</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="divideByMaxRB">
+          <property name="text">
+           <string>Divide by maximum from selected pixels</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </item>
     </layout>

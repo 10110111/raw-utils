@@ -8,6 +8,8 @@
 
 using namespace glm;
 
+static float max(vec3 v) { return std::max({v.x,v.y,v.z}); }
+
 QGLFormat getGLFormat()
 {
     QGLFormat fmt;
@@ -186,15 +188,16 @@ void FrameView::initializeGL()
         clear();
 }
 
-static vec3 calcMeanSelectedPixels(vec3 const*const data, const int width, const int height,
-                                   const ivec2 selectionPointA, const ivec2 selectionPointB)
+static void calcAverageAndMaxSelectedPixels(vec3 const*const data, const int width, const int height,
+                                            const ivec2 selectionPointA, const ivec2 selectionPointB,
+                                            vec3& average, vec3& max)
 {
     const auto iMin=std::min(selectionPointA.x,selectionPointB.x);
     const auto iMax=std::max(selectionPointA.x,selectionPointB.x);
     const auto jMin=std::min(selectionPointA.y,selectionPointB.y);
     const auto jMax=std::max(selectionPointA.y,selectionPointB.y);
 
-    vec3 sum(0);
+    vec3 sum(0), maxval(0);
     for(int j=0;j<height;++j)
     {
         if(j>jMax || j<jMin) continue;
@@ -202,9 +205,11 @@ static vec3 calcMeanSelectedPixels(vec3 const*const data, const int width, const
         {
             if(i>iMax || i<iMin) continue;
             sum+=data[j*width+i];
+            maxval=glm::max(maxval,data[j*width+i]);
         }
     }
-    return sum/(float(iMax-iMin+1)*(jMax-jMin+1));
+    average=sum/(float(iMax-iMin+1)*(jMax-jMin+1));
+    max=maxval;
 }
 
 void FrameView::showImage(QVector<vec3> const& data, int width, int height)
@@ -214,9 +219,10 @@ void FrameView::showImage(QVector<vec3> const& data, int width, int height)
     imageDataToLoad=data;
     imageNeedsUploading=true;
     if(selectionPointA!=selectionPointB)
-        meanOfSelectedPixels=calcMeanSelectedPixels(data.data(),width,height,selectionPointA,selectionPointB);
+        calcAverageAndMaxSelectedPixels(data.data(),width,height,selectionPointA,selectionPointB,
+                                        averageOfSelectedPixels,maxFromSelectedPixels);
     else
-        meanOfSelectedPixels=vec3(1,1,1);
+        averageOfSelectedPixels=vec3(1,1,1);
     update();
 }
 
@@ -232,9 +238,9 @@ void FrameView::setMarkOverexposure(bool enable)
     update();
 }
 
-void FrameView::setDivideByMeanPixelBrightness(bool enable)
+void FrameView::setNormalizationMode(NormalizationMode mode)
 {
-    divisionByMeanPixelBrightnessEnabled=enable;
+    normalizationMode=mode;
     update();
 }
 
@@ -281,11 +287,20 @@ void FrameView::paintGL()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
     glUniform1i(glGetUniformLocation(mainProgram,"tex"),0);
-    const auto selectedMeanMax = divisionByMeanPixelBrightnessEnabled ?
-        std::max({meanOfSelectedPixels.r,meanOfSelectedPixels.g,meanOfSelectedPixels.b})
-                                                                      :
-                                      1.f;
-    glUniform1f(glGetUniformLocation(mainProgram,"scale"),scale/selectedMeanMax);
+    float normalizationCoef=1;
+    switch(normalizationMode)
+    {
+    case NormalizationMode::None:
+        normalizationCoef=1;
+        break;
+    case NormalizationMode::DivideByMax:
+        normalizationCoef=1/max(maxFromSelectedPixels);
+        break;
+    case NormalizationMode::DivideByAverage:
+        normalizationCoef=1/max(averageOfSelectedPixels);
+        break;
+    }
+    glUniform1f(glGetUniformLocation(mainProgram,"scale"),scale*normalizationCoef);
     glUniform1i(glGetUniformLocation(mainProgram,"markOverexposures"),overexposureMarkingEnabled);
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -349,10 +364,14 @@ void FrameView::mouseReleaseEvent(QMouseEvent* event)
         dragging=false;
 
         if(selectionPointA!=selectionPointB)
-            meanOfSelectedPixels=calcMeanSelectedPixels(imageDataToLoad.data(),imgWidth,imgHeight,
-                                                        selectionPointA,selectionPointB);
+            calcAverageAndMaxSelectedPixels(imageDataToLoad.data(),imgWidth,imgHeight,
+                                            selectionPointA,selectionPointB,
+                                            averageOfSelectedPixels,maxFromSelectedPixels);
         else
-            meanOfSelectedPixels=vec3(1,1,1);
+        {
+            averageOfSelectedPixels=vec3(1,1,1);
+            maxFromSelectedPixels=vec3(1,1,1);
+        }
     }
 }
 
