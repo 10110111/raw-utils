@@ -40,7 +40,7 @@ Time makeTime(int year, int month, int day, int hour, int minute, int second)
 {
     return QDateTime(QDate(year,month,day),QTime(hour,minute,second)).toSecsSinceEpoch();
 }
-QString toString(Time time)
+QString timeToString(Time time)
 {
     return QDateTime::fromSecsSinceEpoch(time).toString("yyyy-MM-dd HH:mm:ss");
 }
@@ -338,7 +338,7 @@ void MainWindow::loadFiles(std::string const& dir)
         QStandardItem* timeItem;
         framesModel->appendRow(QList{
                         new QStandardItem(QFileInfo(file.path).fileName()),
-                        timeItem=new QStandardItem(toString(file.shotTime)),
+                        timeItem=new QStandardItem(timeToString(file.shotTime)),
                         new QStandardItem(file.shutterTimeString),
                         new QStandardItem(toStringOrUnknown(file.iso)),
                         new QStandardItem(std::isnan(file.aperture) ? unknownStr : QString("f/%1").arg(file.aperture,0,'g',2)),
