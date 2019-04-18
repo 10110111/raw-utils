@@ -26,7 +26,7 @@ private:
         int width, height;
     };
     Image readImage(Time time);
-    Q_SLOT void loadFiles(std::string const& dir);
+    void loadFiles(std::string const& dir);
     void frameSelectionChanged(QItemSelection const& selected, QItemSelection const& deselected);
     void onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
     void openDir();
