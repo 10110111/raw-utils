@@ -49,6 +49,25 @@ Time toTime(QVariant timeVar)
     return timeVar.toULongLong();
 }
 
+struct ExposureMode
+{
+    double aperture;
+    double iso;
+    double shutterTime;
+    ExposureMode(double aperture, double iso, double shutterTime)
+        : aperture(aperture)
+        , iso(iso)
+        , shutterTime(shutterTime)
+    {}
+    bool operator==(ExposureMode const& other)
+    {
+        const auto sameValue=[](double x, double y)
+        { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
+        return sameValue(aperture,other.aperture) &&
+               sameValue(shutterTime,other.shutterTime) &&
+               sameValue(iso,other.iso);
+    }
+};
 struct Frame
 {
     Frame(Time const& shotTime, QString const& path)
@@ -63,20 +82,16 @@ struct Frame
     double shutterTime=NaN;
     QString shutterTimeString="unknown";
     double exposure; // combined aperture, ISO and shutter time
+
+    ExposureMode exposureMode() const
+    {
+        return {aperture,iso,shutterTime};
+    }
 };
 // Should be sorted by shot time, thus map
 std::map<Time,Frame> filesMap;
 Frame* lastCreatedFile=nullptr;
 QString currentFileBeingOpened;
-
-bool sameExposureMode(Frame const& a, Frame const& b)
-{
-    const auto sameValue=[](double x, double y)
-    { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
-    return sameValue(a.aperture,b.aperture) &&
-           sameValue(a.shutterTime,b.shutterTime) &&
-           sameValue(a.iso,b.iso);
-}
 
 
 static std::string exifHandlerError;
@@ -461,7 +476,7 @@ void MainWindow::onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers)
         {
             const auto shotTimeIdx=newIdx.sibling(newIdx.row(),FramesModel::Column::ShotTime);
             const auto& newFile=filesMap.at(toTime(shotTimeIdx.data(FramesModel::ShotTimeRole)));
-            if(sameExposureMode(newFile,currentFile))
+            if(newFile.exposureMode()==currentFile.exposureMode())
                 break;
         }
         while((newIdx = newIdx.sibling(newIdx.row()+step, col)).isValid());
