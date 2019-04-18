@@ -28,7 +28,6 @@ namespace filesystem=std::filesystem;
 #include <cmath>
 #include <map>
 
-static constexpr auto NaN=std::numeric_limits<double>::quiet_NaN();
 static constexpr auto sqr=[](auto x){return x*x;};
 using std::isnan;
 using Time=MainWindow::Time;
@@ -49,54 +48,23 @@ Time toTime(QVariant timeVar)
     return timeVar.toULongLong();
 }
 
-struct ExposureMode
-{
-    double aperture;
-    double iso;
-    double shutterTime;
-    ExposureMode(double aperture, double iso, double shutterTime)
-        : aperture(aperture)
-        , iso(iso)
-        , shutterTime(shutterTime)
-    {}
-    bool operator==(ExposureMode const& other)
-    {
-        const auto sameValue=[](double x, double y)
-        { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
-        return sameValue(aperture,other.aperture) &&
-               sameValue(shutterTime,other.shutterTime) &&
-               sameValue(iso,other.iso);
-    }
-};
-struct Frame
-{
-    Frame(Time const& shotTime, QString const& path)
-        : shotTime(shotTime)
-        , path(path)
-    {
-    }
-    Time shotTime;
-    QString path;
-    double aperture=NaN;
-    double iso=NaN;
-    double shutterTime=NaN;
-    QString shutterTimeString="unknown";
-    double exposure; // combined aperture, ISO and shutter time
+} // anonymous namespace
 
-    ExposureMode exposureMode() const
-    {
-        return {aperture,iso,shutterTime};
-    }
-};
-// Should be sorted by shot time, thus map
-std::map<Time,Frame> filesMap;
-Frame* lastCreatedFile=nullptr;
-QString currentFileBeingOpened;
-
-
-static std::string exifHandlerError;
-void exifHandler([[maybe_unused]] void* context, int tag, [[maybe_unused]] int type, int count, unsigned byteOrder, void* ifp)
+bool MainWindow::ExposureMode::operator==(ExposureMode const& other)
 {
+    const auto sameValue=[](double x, double y)
+    { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
+    return sameValue(aperture,other.aperture) &&
+           sameValue(shutterTime,other.shutterTime) &&
+           sameValue(iso,other.iso);
+}
+
+void MainWindow::exifHandler(void* context, int tag, [[maybe_unused]] int type, int count, unsigned byteOrder, void* ifp)
+{
+    auto& self=*static_cast<MainWindow*>(context);
+    auto& exifHandlerError=self.exifHandlerError;
+    auto& lastCreatedFile=self.lastCreatedFile;
+
     std::string tagName="(?)";
     unsigned byteCount=0;
     enum TagValue
@@ -166,7 +134,7 @@ void exifHandler([[maybe_unused]] void* context, int tag, [[maybe_unused]] int t
             if(iss.get() && !iss.eof()) throw std::runtime_error("Extra characters after seconds in modification date tag: "+date);
 
             const auto shotTime=makeTime(year,month,day,hour,minute,second);
-            const auto it=filesMap.emplace(std::make_pair(shotTime,Frame{shotTime,currentFileBeingOpened}));
+            const auto it=self.filesMap.emplace(std::make_pair(shotTime,Frame{shotTime,self.currentFileBeingOpened}));
             lastCreatedFile=&it.first->second;
         }
         catch(std::runtime_error const& ex)
@@ -243,8 +211,6 @@ void exifHandler([[maybe_unused]] void* context, int tag, [[maybe_unused]] int t
     }
 }
 
-} // anonymous namespace
-
 MainWindow::MainWindow(std::string const& dirToOpen)
 {
     ui.setupUi(this);
@@ -289,7 +255,7 @@ void MainWindow::loadFiles(std::string const& dir)
     // Load exposure info from EXIF
     {
         LibRaw libRaw;
-        libRaw.set_exifparser_handler(exifHandler, 0);
+        libRaw.set_exifparser_handler(exifHandler, this);
         for(auto const& dentry : filesystem::recursive_directory_iterator(dir))
         {
             currentFileBeingOpened=dentry.path().string().c_str();
