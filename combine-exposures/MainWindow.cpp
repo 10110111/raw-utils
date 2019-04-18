@@ -50,7 +50,7 @@ Time toTime(QVariant timeVar)
 
 } // anonymous namespace
 
-bool MainWindow::ExposureMode::operator==(ExposureMode const& other)
+bool MainWindow::ExposureMode::operator==(ExposureMode const& other) const
 {
     const auto sameValue=[](double x, double y)
     { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };

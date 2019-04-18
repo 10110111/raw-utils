@@ -26,7 +26,7 @@ private /* types */:
               , iso(iso)
               , shutterTime(shutterTime)
         {}
-        bool operator==(ExposureMode const& other);
+        bool operator==(ExposureMode const& other) const;
     };
     struct Frame
     {
