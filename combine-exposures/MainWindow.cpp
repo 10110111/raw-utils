@@ -325,6 +325,7 @@ i=0
             framesByTotalExpo.insert({frame->exposure,
                                      {frame, maxFromSelectedPixels, averageOfSelectedPixels}});
         }
+        bool lineGenerated=false;
         for(auto it=framesByTotalExpo.rbegin(); it!=framesByTotalExpo.rend(); ++it)
         {
             // FIXME: make overexposure test more reliable. This one will fail
@@ -335,6 +336,7 @@ i=0
             {
                 // OK, this is the frame we want to use
                 scriptSrc+=QString("data2bmp -srgb -p $(printf \"$outdir/frame-PERCENT_FOUR_D-\" $i) \"%1\" -s %2; ((++i))\n").arg(it->second.frame->path).arg(1/maxVal).replace("PERCENT_FOUR_D","%04d");
+                lineGenerated=true;
                 break;
             }
             qApp->processEvents();
@@ -343,6 +345,15 @@ i=0
                 cleanupBeforeStopping();
                 return;
             }
+        }
+        if(!lineGenerated)
+        {
+            statusBar()->clearMessage(); // Don't confuse the user with "read successfully" status
+            QMessageBox::warning(this,tr("No images in current group"),
+                                 tr("No suitable images were found in current group (first frame at %1).\n"
+                                    "Will abort script generation.").arg(timeToString(framesByTotalExpo.begin()->second.frame->shotTime)));
+            cleanupBeforeStopping();
+            return;
         }
     }
     cleanupBeforeStopping();
