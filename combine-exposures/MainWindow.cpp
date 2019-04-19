@@ -388,6 +388,8 @@ void MainWindow::loadFiles(std::string const& dir)
         libRaw.set_exifparser_handler(exifHandler, this);
         for(auto const& dentry : filesystem::recursive_directory_iterator(dir))
         {
+            if(is_directory(dentry)) continue;
+
             currentFileBeingOpened=dentry.path().string().c_str();
             statusBar()->showMessage(tr("Opening file \"%1\"...").arg(currentFileBeingOpened));
             qApp->processEvents();
