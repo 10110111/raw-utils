@@ -301,7 +301,7 @@ i=0
     std::size_t groupsProcessed=0;
     for(auto const& group : frameGroups)
     {
-        statusProgressBar->setValue(groupsProcessed);
+        statusProgressBar->setValue(groupsProcessed++);
         struct FrameInfo
         {
             Frame const* frame;
