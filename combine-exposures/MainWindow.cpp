@@ -5,6 +5,8 @@
 
 #include <libraw/libraw.h>
 
+#include <QDialogButtonBox>
+#include <QTextEdit>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QWheelEvent>
@@ -27,6 +29,8 @@ namespace filesystem=std::filesystem;
 #include <limits>
 #include <cmath>
 #include <map>
+
+#include "util.h"
 
 static constexpr auto sqr=[](auto x){return x*x;};
 using std::isnan;
@@ -245,6 +249,9 @@ MainWindow::MainWindow(std::string const& dirToOpen)
 {
     ui.setupUi(this);
     ui.abortLoadingBtn->hide();
+    ui.abortScriptGenerationBtn->hide();
+    connect(ui.abortScriptGenerationBtn,&QPushButton::clicked, this,[this]{renderScriptGenerationAborted=true;});
+    connect(ui.generateRenderScriptBtn,&QPushButton::clicked, this,&MainWindow::generateRenderScript);
     connect(ui.abortLoadingBtn,&QPushButton::clicked, this,[this]{fileLoadingAborted=true;});
     connect(ui.action_Open_directory, &QAction::triggered, this, &MainWindow::openDir);
     connect(ui.action_Quit, &QAction::triggered, qApp, &QApplication::quit);
@@ -267,6 +274,84 @@ MainWindow::MainWindow(std::string const& dirToOpen)
 
     if(!dirToOpen.empty())
         QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
+}
+
+void MainWindow::generateRenderScript()
+{
+    ui.generateRenderScriptBtn->hide();
+    ui.abortScriptGenerationBtn->show();
+    QString scriptSrc;
+    scriptSrc+=1+R"(
+#!/bin/bash -e
+
+outdir=/tmp/ladoga-twilight-frames
+export PATH=$HOME/myprogs/raw-histogram:$PATH
+mkdir "$outdir"
+i=0
+)";
+    renderScriptGenerationAborted=false;
+    for(auto const& group : frameGroups)
+    {
+        struct FrameInfo
+        {
+            Frame const* frame;
+            glm::vec3 maxFromSelectedPixels;
+            glm::vec3 averageOfSelectedPixels;
+        };
+        std::map<double/*exposure*/, FrameInfo> framesByTotalExpo;
+        for(const auto frame : group)
+        {
+            statusBar()->showMessage(tr("Processing file \"%1\"...").arg(frame->path));
+            const auto img=readImage(frame->shotTime);
+            glm::vec3 maxFromSelectedPixels, averageOfSelectedPixels;
+            frameView->gatherSelectedPixelsInfo(img.data.data(), img.width, img.height,
+                                                maxFromSelectedPixels, averageOfSelectedPixels);
+            framesByTotalExpo.insert({frame->exposure,
+                                     {frame, maxFromSelectedPixels, averageOfSelectedPixels}});
+        }
+        for(auto it=framesByTotalExpo.rbegin(); it!=framesByTotalExpo.rend(); ++it)
+        {
+            // FIXME: make overexposure test more reliable. This one will fail
+            // if we e.g. use a global amplification factor to reduce the value
+            // below 1.
+            const auto maxVal=max(it->second.maxFromSelectedPixels);
+            if(maxVal<1)
+            {
+                // OK, this is the frame we want to use
+                scriptSrc+=QString("data2bmp -srgb -p $(printf \"$outdir/frame-PERCENT_FOUR_D-\" $i) \"%1\" -s %2; ((++i))\n").arg(it->second.frame->path).arg(1/maxVal).replace("PERCENT_FOUR_D","%04d");
+                break;
+            }
+            qApp->processEvents();
+            // TOOD: make a progress bar
+            if(renderScriptGenerationAborted)
+            {
+                ui.generateRenderScriptBtn->show();
+                ui.abortScriptGenerationBtn->hide();
+                statusBar()->clearMessage();
+                return;
+            }
+        }
+    }
+    statusBar()->clearMessage();
+    ui.generateRenderScriptBtn->show();
+    ui.abortScriptGenerationBtn->hide();
+
+    scriptSrc+="ffmpeg -i \"$outdir/frame-%04d-merged-srgb.bmp\" -r 16 video.mp4\n";
+
+    QDialog dialog;
+    dialog.setWindowTitle(tr("Render script"));
+    const auto layout=new QVBoxLayout(&dialog);
+    const auto textWidget=new QTextEdit(&dialog);
+    textWidget->setReadOnly(true);
+    textWidget->setAcceptRichText(false);
+    textWidget->setTabChangesFocus(true);
+    textWidget->setLineWrapMode(QTextEdit::NoWrap);
+    textWidget->setPlainText(scriptSrc);
+    layout->addWidget(textWidget);
+    const auto buttonBox=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttonBox);
+    dialog.exec();
 }
 
 void MainWindow::openDir()
@@ -379,6 +464,7 @@ void MainWindow::groupFiles()
 void MainWindow::loadFiles(std::string const& dir)
 {
     fileLoadingAborted=false;
+    ui.generateRenderScriptBtn->hide();
     ui.abortLoadingBtn->show();
     framesModel->removeRows(0,framesModel->rowCount());
     filesMap.clear();
@@ -415,6 +501,7 @@ void MainWindow::loadFiles(std::string const& dir)
         }
         statusBar()->clearMessage();
         ui.abortLoadingBtn->hide();
+        ui.generateRenderScriptBtn->show();
     }
 
     // Initialize total exposure values (using only the data we know
@@ -463,6 +550,8 @@ void MainWindow::loadFiles(std::string const& dir)
     }
 
     groupFiles();
+
+    ui.generateRenderScriptBtn->show();
 }
 
 void MainWindow::frameSelectionChanged(QItemSelection const& selected,
@@ -485,7 +574,7 @@ void MainWindow::frameSelectionChanged(QItemSelection const& selected,
     }
 }
 
-auto MainWindow::readImage(Time time) -> Image
+auto MainWindow::readImage(Time time) const -> Image
 {
     LibRaw libRaw;
     const auto& path=filesMap.at(time).path;
@@ -495,7 +584,7 @@ auto MainWindow::readImage(Time time) -> Image
     statusBar()->showMessage("Unpacking file...");
     if(const auto error=libRaw.unpack())
     {
-        QMessageBox::critical(this, tr("Failed to read image"),
+        QMessageBox::critical(const_cast<MainWindow*>(this), tr("Failed to read image"),
                               tr("LibRaw failed to unpack data from file \"%1\": error %2").arg(path).arg(error));
         statusBar()->showMessage("Failed to read file");
         return Image{{glm::vec3(1,0,1)},1,1};

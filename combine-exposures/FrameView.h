@@ -49,6 +49,10 @@ public:
     void setScale(double newScale);
     void setMarkOverexposure(bool enable);
     void setNormalizationMode(NormalizationMode mode);
+    void gatherSelectedPixelsInfo(glm::vec3 const* imageData,
+                                  int imgWidth, int imgHeight,
+                                  glm::vec3& maxFromSelectedPixels,
+                                  glm::vec3& averageOfSelectedPixels) const;
 
 signals:
     void wheelScrolled(int delta, Qt::KeyboardModifiers modifiers);

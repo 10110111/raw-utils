@@ -50,55 +50,6 @@
    </attribute>
    <widget class="QWidget" name="settingsDockLayout">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>&amp;Global brightness multiplier</string>
-       </property>
-       <property name="buddy">
-        <cstring>globalBrightnessMultiplier</cstring>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QDoubleSpinBox" name="globalBrightnessMultiplier">
-       <property name="decimals">
-        <number>3</number>
-       </property>
-       <property name="minimum">
-        <double>0.001000000000000</double>
-       </property>
-       <property name="maximum">
-        <double>999.990000000000009</double>
-       </property>
-       <property name="singleStep">
-        <double>0.100000000000000</double>
-       </property>
-       <property name="value">
-        <double>1.000000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QCheckBox" name="markOverexposuresCB">
-       <property name="text">
-        <string>Mar&amp;k overexposures</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
      <item row="2" column="0" colspan="2">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
@@ -135,10 +86,73 @@
        </layout>
       </widget>
      </item>
-     <item row="3" column="0" colspan="2">
+     <item row="0" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>&amp;Global brightness multiplier</string>
+       </property>
+       <property name="buddy">
+        <cstring>globalBrightnessMultiplier</cstring>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QDoubleSpinBox" name="globalBrightnessMultiplier">
+       <property name="decimals">
+        <number>3</number>
+       </property>
+       <property name="minimum">
+        <double>0.001000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>999.990000000000009</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QCheckBox" name="markOverexposuresCB">
+       <property name="text">
+        <string>Mar&amp;k overexposures</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="4" column="0" colspan="2">
       <widget class="QPushButton" name="abortLoadingBtn">
        <property name="text">
         <string>&amp;Abort loading</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0" colspan="2">
+      <widget class="QPushButton" name="abortScriptGenerationBtn">
+       <property name="text">
+        <string>Abort script generation</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0" colspan="2">
+      <widget class="QPushButton" name="generateRenderScriptBtn">
+       <property name="text">
+        <string>Generate shell script for rendering frames</string>
        </property>
       </widget>
      </item>

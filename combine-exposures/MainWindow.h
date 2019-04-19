@@ -68,6 +68,7 @@ private /* data */:
     FrameView* frameView;
     FramesModel* framesModel;
     bool fileLoadingAborted=false;
+    bool renderScriptGenerationAborted=false;
     Frame* lastCreatedFile=nullptr;
     QString currentFileBeingOpened;
     // Files should be sorted by shot time, thus storing them in a map
@@ -78,12 +79,13 @@ private /* data */:
     std::vector<std::vector<Frame const*>> frameGroups;
 
 private /* methods */:
-    Image readImage(Time time);
+    Image readImage(Time time) const;
     void loadFiles(std::string const& dir);
     void frameSelectionChanged(QItemSelection const& selected, QItemSelection const& deselected);
     void onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
     void openDir();
     void groupFiles();
+    void generateRenderScript();
     struct PrevExpoMode
     {
         Time timeDist;

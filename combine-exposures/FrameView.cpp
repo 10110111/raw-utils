@@ -5,10 +5,9 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include "util.h"
 
 using namespace glm;
-
-static float max(vec3 v) { return std::max({v.x,v.y,v.z}); }
 
 QGLFormat getGLFormat()
 {
@@ -366,6 +365,12 @@ void FrameView::mousePressEvent(QMouseEvent* event)
 
 void FrameView::updateSelectedPixelsInfo()
 {
+    gatherSelectedPixelsInfo(imageDataToLoad.data(), imgWidth, imgHeight,
+                             maxFromSelectedPixels,averageOfSelectedPixels);
+}
+
+void FrameView::gatherSelectedPixelsInfo(vec3 const* imageData, int imgWidth, int imgHeight, vec3& maxFromSelectedPixels, vec3& averageOfSelectedPixels) const
+{
     auto sumOfAverages=vec3(0);
     int processedCount=0;
     auto totalMax=vec3(0);
@@ -374,7 +379,7 @@ void FrameView::updateSelectedPixelsInfo()
         if(selection.pointA!=selection.pointB)
         {
             vec3 average, max;
-            calcAverageAndMaxSelectedPixels(imageDataToLoad.data(),imgWidth,imgHeight,
+            calcAverageAndMaxSelectedPixels(imageData,imgWidth,imgHeight,
                                             selection.pointA,selection.pointB,
                                             average,max);
             sumOfAverages+=average;
