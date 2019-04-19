@@ -9,6 +9,7 @@
 
 class FrameView;
 class FramesModel;
+class QProgressBar;
 
 class MainWindow : public QMainWindow
 {
@@ -67,6 +68,7 @@ private /* data */:
     Ui::MainWindow ui;
     FrameView* frameView;
     FramesModel* framesModel;
+    QProgressBar* statusProgressBar;
     bool fileLoadingAborted=false;
     bool renderScriptGenerationAborted=false;
     Frame* lastCreatedFile=nullptr;

@@ -6,6 +6,7 @@
 #include <libraw/libraw.h>
 
 #include <QDialogButtonBox>
+#include <QProgressBar>
 #include <QTextEdit>
 #include <QMessageBox>
 #include <QFileDialog>
@@ -246,6 +247,7 @@ void MainWindow::exifHandler(void* context, int tag, [[maybe_unused]] int type, 
 }
 
 MainWindow::MainWindow(std::string const& dirToOpen)
+    : statusProgressBar(new QProgressBar(statusBar()))
 {
     ui.setupUi(this);
     ui.abortLoadingBtn->hide();
@@ -272,6 +274,9 @@ MainWindow::MainWindow(std::string const& dirToOpen)
             { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByMax); });
     connect(frameView, &FrameView::wheelScrolled, this, &MainWindow::onWheelScrolled);
 
+    statusBar()->addPermanentWidget(statusProgressBar);
+    statusProgressBar->hide();
+
     if(!dirToOpen.empty())
         QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
 }
@@ -280,6 +285,8 @@ void MainWindow::generateRenderScript()
 {
     ui.generateRenderScriptBtn->hide();
     ui.abortScriptGenerationBtn->show();
+    statusProgressBar->show();
+
     QString scriptSrc;
     scriptSrc+=1+R"(
 #!/bin/bash -e
@@ -290,8 +297,11 @@ mkdir "$outdir"
 i=0
 )";
     renderScriptGenerationAborted=false;
+    statusProgressBar->setRange(0, frameGroups.size());
+    std::size_t groupsProcessed=0;
     for(auto const& group : frameGroups)
     {
+        statusProgressBar->setValue(groupsProcessed);
         struct FrameInfo
         {
             Frame const* frame;
@@ -301,7 +311,6 @@ i=0
         std::map<double/*exposure*/, FrameInfo> framesByTotalExpo;
         for(const auto frame : group)
         {
-            statusBar()->showMessage(tr("Processing file \"%1\"...").arg(frame->path));
             const auto img=readImage(frame->shotTime);
             glm::vec3 maxFromSelectedPixels, averageOfSelectedPixels;
             frameView->gatherSelectedPixelsInfo(img.data.data(), img.width, img.height,
@@ -322,17 +331,18 @@ i=0
                 break;
             }
             qApp->processEvents();
-            // TOOD: make a progress bar
             if(renderScriptGenerationAborted)
             {
                 ui.generateRenderScriptBtn->show();
                 ui.abortScriptGenerationBtn->hide();
                 statusBar()->clearMessage();
+                statusProgressBar->hide();
                 return;
             }
         }
     }
     statusBar()->clearMessage();
+    statusProgressBar->hide();
     ui.generateRenderScriptBtn->show();
     ui.abortScriptGenerationBtn->hide();
 
@@ -468,6 +478,32 @@ void MainWindow::loadFiles(std::string const& dir)
     ui.abortLoadingBtn->show();
     framesModel->removeRows(0,framesModel->rowCount());
     filesMap.clear();
+
+    statusProgressBar->show();
+    std::size_t fileCount=0;
+    statusBar()->showMessage(tr("Counting files..."));
+    statusProgressBar->setRange(0,0);
+    for(auto const& dentry : filesystem::recursive_directory_iterator(dir))
+    {
+        if(!is_directory(dentry))
+        {
+            ++fileCount;
+            if(fileCount%100)
+            {
+                qApp->processEvents();
+                if(fileLoadingAborted)
+                {
+                    statusBar()->showMessage(tr("Loading of files aborted"));
+                    ui.abortLoadingBtn->hide();
+                    statusProgressBar->hide();
+                    return;
+                }
+            }
+        }
+    }
+
+    statusProgressBar->setRange(0,fileCount);
+    statusBar()->showMessage(tr("Loading files..."));
     // Load exposure info from EXIF
     {
         LibRaw libRaw;
@@ -476,8 +512,9 @@ void MainWindow::loadFiles(std::string const& dir)
         {
             if(is_directory(dentry)) continue;
 
+            statusProgressBar->setValue(filesMap.size());
+
             currentFileBeingOpened=dentry.path().string().c_str();
-            statusBar()->showMessage(tr("Opening file \"%1\"...").arg(currentFileBeingOpened));
             qApp->processEvents();
             if(fileLoadingAborted)
             {
@@ -485,6 +522,7 @@ void MainWindow::loadFiles(std::string const& dir)
                 ui.abortLoadingBtn->hide();
                 filesMap.clear();
                 framesModel->removeRows(0,framesModel->rowCount());
+                statusProgressBar->hide();
                 return;
             }
             lastCreatedFile=nullptr;
@@ -496,10 +534,12 @@ void MainWindow::loadFiles(std::string const& dir)
                 filesMap.clear();
                 QMessageBox::critical(this, tr("Error processing file"),tr("Failed to load EXIF data from file \"%1\": %1").arg(dentry.path().string().c_str()).arg(exifHandlerError.c_str()));
                 statusBar()->showMessage(tr("Failed to load EXIF data from a file"));
+                statusProgressBar->hide();
                 return;
             }
         }
         statusBar()->clearMessage();
+        statusProgressBar->hide();
         ui.abortLoadingBtn->hide();
         ui.generateRenderScriptBtn->show();
     }
