@@ -394,6 +394,7 @@ void MainWindow::loadFiles(std::string const& dir)
             if(fileLoadingAborted)
             {
                 statusBar()->showMessage(tr("Loading of files aborted"));
+                ui.abortLoadingBtn->hide();
                 filesMap.clear();
                 framesModel->removeRows(0,framesModel->rowCount());
                 return;
