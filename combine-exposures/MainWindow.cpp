@@ -48,15 +48,45 @@ Time toTime(QVariant timeVar)
     return timeVar.toULongLong();
 }
 
+const auto unknownStr=QObject::tr("unknown");
+QString formatAperture(double aperture)
+{
+    return std::isnan(aperture) ? unknownStr : QString("f/%1").arg(aperture,0,'g',2);
+}
+QString toStringOrUnknown(double num)
+{
+    return std::isnan(num) ? unknownStr : QString::number(num);
+}
+QString formatISO(double iso)
+{
+    return toStringOrUnknown(iso);
+}
+
 } // anonymous namespace
 
+bool MainWindow::ExposureMode::sameValue(double x, double y)
+{
+    return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y));
+}
 bool MainWindow::ExposureMode::operator==(ExposureMode const& other) const
 {
-    const auto sameValue=[](double x, double y)
-    { return (!isnan(x) && !isnan(y) && x==y) || (isnan(x) && isnan(y)); };
     return sameValue(aperture,other.aperture) &&
            sameValue(shutterTime,other.shutterTime) &&
            sameValue(iso,other.iso);
+}
+bool MainWindow::ExposureMode::operator<(ExposureMode const& rhs) const
+{
+    return (!sameValue(aperture,rhs.aperture) && aperture<rhs.aperture) ||
+           (!sameValue(iso,rhs.iso) && iso<rhs.iso) ||
+           (!sameValue(shutterTime,rhs.shutterTime) && shutterTime<rhs.shutterTime);
+}
+QString MainWindow::ExposureMode::toString() const
+{
+    if(!initialized) return "(invalid)";
+
+    return QString("Shutter %1, ISO %2, aperture %3").arg(formattedShutterTime)
+                                                     .arg(formatISO(iso))
+                                                     .arg(formatAperture(aperture));
 }
 
 void MainWindow::exifHandler(void* context, int tag, [[maybe_unused]] int type, int count, unsigned byteOrder, void* ifp)
@@ -246,6 +276,106 @@ void MainWindow::openDir()
     loadFiles(dirPath.toStdString());
 }
 
+auto MainWindow::makePrevExpoModesMap() -> std::map<ExposureMode, PrevExpoMode>
+{
+    std::map<ExposureMode, PrevExpoMode> prevExpoModesMap;
+    const auto findExpoMode=[](auto it, auto end, ExposureMode const& mode)
+        {
+            while(++it!=end && it->second.exposureMode()!=mode);
+            return it;
+        };
+    for(auto const& expoMode : allExposureModes)
+    {
+        Time smallestDist=std::numeric_limits<Time>::max();
+        ExposureMode prevExpoMode;
+        const auto end=filesMap.end();
+        for(auto it=findExpoMode(filesMap.begin(),end,expoMode); it!=end; it=findExpoMode(it,end,expoMode))
+        {
+            const auto prevIt=prev(it);
+            const auto& prevFile=prevIt->second;
+            const auto& currFile=it->second;
+
+            if(prevFile.exposureMode()==currFile.exposureMode())
+                continue;
+
+            const auto currDist=currFile.shotTime - prevFile.shotTime;
+            if(currDist < smallestDist)
+            {
+                smallestDist=currDist;
+                prevExpoMode=prevFile.exposureMode();
+            }
+        }
+        if(prevExpoMode.initialized)
+            prevExpoModesMap.insert({expoMode, {smallestDist,prevExpoMode}});
+    }
+
+    Time largestTimeDist=0;
+    ExposureMode const* firstModeAfterPause=nullptr; // the mode with which each bracketing iteration starts
+    for(auto const& [mode,prevMode] : prevExpoModesMap)
+    {
+        if(prevMode.timeDist>largestTimeDist)
+        {
+            largestTimeDist=prevMode.timeDist;
+            firstModeAfterPause=&mode;
+        }
+    }
+    assert(firstModeAfterPause);
+    prevExpoModesMap.erase(*firstModeAfterPause);
+
+    return prevExpoModesMap;
+}
+
+void MainWindow::groupFiles()
+{
+    if(filesMap.empty()) return;
+
+    statusBar()->showMessage(tr("Grouping files..."));
+
+    const auto prevExpoModesMap=makePrevExpoModesMap();
+
+    int row=0;
+    bool highlighted=false;
+    auto prevMode=filesMap.begin()->second.exposureMode();
+    for(auto it=next(filesMap.begin()); it!=filesMap.end(); ++it, ++row)
+    {
+        if(highlighted)
+            framesModel->setData(framesModel->index(row,0), QColor(200,200,200), Qt::BackgroundRole);
+
+        bool newBracketingIteration=false;
+        auto currMode=it->second.exposureMode();
+        if(currMode==prevMode || frameGroups.empty())
+        {
+            // Only one image was in the whole previous bracketing iteration,
+            // or we're just starting.
+            newBracketingIteration=true;
+        }
+        else
+        {
+            // If all known-previous modes for current exposure mode don't
+            // match prevMode, we know that it's a new bracketing iteration.
+            while(currMode!=prevMode && prevExpoModesMap.count(currMode))
+                currMode=prevExpoModesMap.at(currMode).mode;
+
+            if(currMode!=prevMode)
+                newBracketingIteration=true;
+        }
+
+        if(newBracketingIteration)
+        {
+            frameGroups.push_back({&it->second});
+            // Toggle highlighting of the list to make rows from a single group the same color
+            highlighted=!highlighted;
+        }
+        else
+        {
+            frameGroups.back().emplace_back(&it->second);
+        }
+        prevMode=it->second.exposureMode();
+    }
+
+    statusBar()->clearMessage();
+}
+
 void MainWindow::loadFiles(std::string const& dir)
 {
     fileLoadingAborted=false;
@@ -294,7 +424,7 @@ void MainWindow::loadFiles(std::string const& dir)
         if(!isnan(file.aperture   )) file.exposure /= sqr(file.aperture);
     }
 
-    // Fill the tree widget
+    // Fill the tree widget and all exposures set
     const auto unknownStr=tr("unknown");
     const auto toStringOrUnknown=[&unknownStr](auto num)
         { return std::isnan(num) ? unknownStr : QString::number(num); };
@@ -311,6 +441,8 @@ void MainWindow::loadFiles(std::string const& dir)
                         new QStandardItem(toStringOrUnknown(file.exposure)),
                        });
         timeItem->setData(file.shotTime, FramesModel::ShotTimeRole);
+
+        allExposureModes.insert(file.exposureMode());
     }
     
     for(int i=0;i<FramesModel::COLUMN_COUNT;++i)
@@ -326,6 +458,8 @@ void MainWindow::loadFiles(std::string const& dir)
             dirForTitle.chop(1);
         setWindowTitle(QFileInfo(dirForTitle).fileName());
     }
+
+    groupFiles();
 }
 
 void MainWindow::frameSelectionChanged(QItemSelection const& selected,

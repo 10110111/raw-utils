@@ -5,6 +5,7 @@
 #include "ui_MainWindow.h"
 #include <glm/glm.hpp>
 #include <QVector>
+#include <set>
 
 class FrameView;
 class FramesModel;
@@ -21,12 +22,21 @@ private /* types */:
         double aperture;
         double iso;
         double shutterTime;
-        ExposureMode(double aperture, double iso, double shutterTime)
+        QString formattedShutterTime;
+        bool initialized=false;
+        ExposureMode(double aperture, double iso, double shutterTime, QString const& formattedShutterTime)
             : aperture(aperture)
               , iso(iso)
               , shutterTime(shutterTime)
+            , formattedShutterTime(formattedShutterTime)
+            , initialized(true)
         {}
+        ExposureMode()=default;
+        static bool sameValue(double x, double y);
         bool operator==(ExposureMode const& other) const;
+        bool operator!=(ExposureMode const& other) const { return !(*this==other); }
+        bool operator<(ExposureMode const& rhs) const;
+        QString toString() const;
     };
     struct Frame
     {
@@ -45,7 +55,7 @@ private /* types */:
 
         ExposureMode exposureMode() const
         {
-            return {aperture,iso,shutterTime};
+            return {aperture,iso,shutterTime,shutterTimeString};
         }
     };
     struct Image
@@ -62,7 +72,10 @@ private /* data */:
     QString currentFileBeingOpened;
     // Files should be sorted by shot time, thus storing them in a map
     std::map<Time,Frame> filesMap;
+    std::set<ExposureMode> allExposureModes;
     std::string exifHandlerError;
+    // Images grouped by bracketing iteration. Inner vector contains images from a single iteration.
+    std::vector<std::vector<Frame const*>> frameGroups;
 
 private /* methods */:
     Image readImage(Time time);
@@ -70,6 +83,13 @@ private /* methods */:
     void frameSelectionChanged(QItemSelection const& selected, QItemSelection const& deselected);
     void onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
     void openDir();
+    void groupFiles();
+    struct PrevExpoMode
+    {
+        Time timeDist;
+        ExposureMode mode;
+    };
+    std::map<ExposureMode, PrevExpoMode> makePrevExpoModesMap();
     static void exifHandler(void* context, int tag, int type, int count, unsigned byteOrder, void* ifp);
 public:
     MainWindow(std::string const& dirToOpen);
