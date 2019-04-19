@@ -288,14 +288,12 @@ void MainWindow::generateRenderScript()
     statusProgressBar->show();
 
     QString scriptSrc;
-    scriptSrc+=1+R"(
-#!/bin/bash -e
-
-outdir=/tmp/ladoga-twilight-frames
-export PATH=$HOME/myprogs/raw-histogram:$PATH
-mkdir "$outdir"
-i=0
-)";
+    scriptSrc+=QString("#!/bin/bash -e\n"
+                       "\n"
+                       "outdir=/tmp/%1-frames\n"
+                       "export PATH=$HOME/myprogs/raw-histogram:$PATH\n"
+                       "mkdir \"$outdir\"\n"
+                       "i=0\n").arg(dirFileName);
     renderScriptGenerationAborted=false;
     statusProgressBar->setRange(0, frameGroups.size());
     std::size_t groupsProcessed=0;
@@ -598,7 +596,8 @@ void MainWindow::loadFiles(std::string const& dir)
         auto dirForTitle=QString::fromStdString(dir);
         if(dirForTitle.back()=='/')
             dirForTitle.chop(1);
-        setWindowTitle(QFileInfo(dirForTitle).fileName());
+        dirFileName=QFileInfo(dirForTitle).fileName();
+        setWindowTitle(dirFileName);
     }
 
     groupFiles();

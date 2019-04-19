@@ -73,6 +73,7 @@ private /* data */:
     bool renderScriptGenerationAborted=false;
     Frame* lastCreatedFile=nullptr;
     QString currentFileBeingOpened;
+    QString dirFileName;
     // Files should be sorted by shot time, thus storing them in a map
     std::map<Time,Frame> filesMap;
     std::set<ExposureMode> allExposureModes;
