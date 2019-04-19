@@ -244,7 +244,7 @@ void MainWindow::exifHandler(void* context, int tag, [[maybe_unused]] int type, 
 MainWindow::MainWindow(std::string const& dirToOpen)
 {
     ui.setupUi(this);
-    ui.abortLoadingBtn->setHidden(true);
+    ui.abortLoadingBtn->hide();
     connect(ui.abortLoadingBtn,&QPushButton::clicked, this,[this]{fileLoadingAborted=true;});
     connect(ui.action_Open_directory, &QAction::triggered, this, &MainWindow::openDir);
     connect(ui.action_Quit, &QAction::triggered, qApp, &QApplication::quit);
@@ -379,7 +379,7 @@ void MainWindow::groupFiles()
 void MainWindow::loadFiles(std::string const& dir)
 {
     fileLoadingAborted=false;
-    ui.abortLoadingBtn->setVisible(true);
+    ui.abortLoadingBtn->show();
     framesModel->removeRows(0,framesModel->rowCount());
     filesMap.clear();
     // Load exposure info from EXIF
@@ -411,7 +411,7 @@ void MainWindow::loadFiles(std::string const& dir)
             }
         }
         statusBar()->clearMessage();
-        ui.abortLoadingBtn->setHidden(true);
+        ui.abortLoadingBtn->hide();
     }
 
     // Initialize total exposure values (using only the data we know
