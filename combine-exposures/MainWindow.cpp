@@ -299,6 +299,13 @@ i=0
     renderScriptGenerationAborted=false;
     statusProgressBar->setRange(0, frameGroups.size());
     std::size_t groupsProcessed=0;
+    const auto cleanupBeforeStopping=[&]
+        {
+            ui.generateRenderScriptBtn->show();
+            ui.abortScriptGenerationBtn->hide();
+            statusBar()->clearMessage();
+            statusProgressBar->hide();
+        };
     for(auto const& group : frameGroups)
     {
         statusProgressBar->setValue(groupsProcessed++);
@@ -333,18 +340,12 @@ i=0
             qApp->processEvents();
             if(renderScriptGenerationAborted)
             {
-                ui.generateRenderScriptBtn->show();
-                ui.abortScriptGenerationBtn->hide();
-                statusBar()->clearMessage();
-                statusProgressBar->hide();
+                cleanupBeforeStopping();
                 return;
             }
         }
     }
-    statusBar()->clearMessage();
-    statusProgressBar->hide();
-    ui.generateRenderScriptBtn->show();
-    ui.abortScriptGenerationBtn->hide();
+    cleanupBeforeStopping();
 
     scriptSrc+="ffmpeg -i \"$outdir/frame-%04d-merged-srgb.bmp\" -r 16 video.mp4\n";
 
