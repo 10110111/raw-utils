@@ -247,7 +247,6 @@ void MainWindow::exifHandler(void* context, int tag, [[maybe_unused]] int type, 
 }
 
 MainWindow::MainWindow(std::string const& dirToOpen)
-    : statusProgressBar(new QProgressBar(statusBar()))
 {
     ui.setupUi(this);
     ui.abortLoadingBtn->hide();
@@ -277,7 +276,7 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     connect(frameView, &FrameView::selectionAdded, this, &MainWindow::onSelectionAdded);
     connect(frameView, &FrameView::selectionsRemoved, this, &MainWindow::onSelectionsRemoved);
 
-    statusBar()->addPermanentWidget(statusProgressBar);
+    statusBar()->addPermanentWidget(statusProgressBar=new QProgressBar(statusBar()));
     statusProgressBar->hide();
 
     if(!dirToOpen.empty())
