@@ -86,6 +86,8 @@ private /* methods */:
     void loadFiles(std::string const& dir);
     void frameSelectionChanged(QItemSelection const& selected, QItemSelection const& deselected);
     void onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
+    void onSelectionAdded(glm::ivec2 pointA, glm::ivec2 pointB);
+    void onSelectionsRemoved();
     void openDir();
     void groupFiles();
     void generateRenderScript();

@@ -260,6 +260,7 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     ui.treeView->setModel(framesModel=new FramesModel(this));
     ui.treeView->setRootIsDecorated(false);
     connect(ui.treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::frameSelectionChanged);
+    ui.selectionsWidget->setRootIsDecorated(false);
 
     setCentralWidget(frameView=new FrameView(this));
     connect(ui.globalBrightnessMultiplier, qOverload<double>(&QDoubleSpinBox::valueChanged),
@@ -273,12 +274,29 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     connect(ui.divideByMaxRB, &QRadioButton::toggled, this, [this](bool checked)
             { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByMax); });
     connect(frameView, &FrameView::wheelScrolled, this, &MainWindow::onWheelScrolled);
+    connect(frameView, &FrameView::selectionAdded, this, &MainWindow::onSelectionAdded);
+    connect(frameView, &FrameView::selectionsRemoved, this, &MainWindow::onSelectionsRemoved);
 
     statusBar()->addPermanentWidget(statusProgressBar);
     statusProgressBar->hide();
 
     if(!dirToOpen.empty())
         QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
+}
+
+void MainWindow::onSelectionAdded(glm::ivec2 pointA, glm::ivec2 pointB)
+{
+    const auto topLeft=glm::min(pointA,pointB);
+    const auto bottomRight=glm::max(pointA,pointB);
+    ui.selectionsWidget->addTopLevelItem({new QTreeWidgetItem({
+        QString("%1,%2").arg(topLeft.x).arg(topLeft.y),
+        QString("%1,%2").arg(bottomRight.x).arg(bottomRight.y)
+        })});
+}
+
+void MainWindow::onSelectionsRemoved()
+{
+    ui.selectionsWidget->clear();
 }
 
 void MainWindow::generateRenderScript()

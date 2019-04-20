@@ -354,7 +354,10 @@ void FrameView::wheelEvent(QWheelEvent* event)
 void FrameView::mousePressEvent(QMouseEvent* event)
 {
     if(!(event->modifiers()&Qt::ControlModifier))
+    {
         selections.clear();
+        emit selectionsRemoved();
+    }
 
     if(event->buttons()==Qt::LeftButton)
     {
@@ -406,6 +409,7 @@ void FrameView::mouseReleaseEvent(QMouseEvent* event)
     if(!(event->buttons()&Qt::LeftButton)) // the button should be released, so its state should be 0
     {
         updateLastSelectionRectangle(event->pos());
+        emit selectionAdded(selections.back().pointA, selections.back().pointB);
         dragging=false;
         updateSelectedPixelsInfo();
     }

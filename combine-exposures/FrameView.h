@@ -56,6 +56,8 @@ public:
 
 signals:
     void wheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
+    void selectionAdded(glm::ivec2 pointA, glm::ivec2 pointB);
+    void selectionsRemoved();
 protected:
     void initializeGL() override;
     void paintGL() override;

@@ -50,7 +50,7 @@
    </attribute>
    <widget class="QWidget" name="settingsDockLayout">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="2" column="0" colspan="2">
+     <item row="3" column="0" colspan="2">
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
         <string>Pixel values normalization mode</string>
@@ -122,7 +122,28 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="0">
+     <item row="5" column="0" colspan="2">
+      <widget class="QPushButton" name="abortLoadingBtn">
+       <property name="text">
+        <string>&amp;Abort loading</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0" colspan="2">
+      <widget class="QPushButton" name="abortScriptGenerationBtn">
+       <property name="text">
+        <string>Abort script generation</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0" colspan="2">
+      <widget class="QPushButton" name="generateRenderScriptBtn">
+       <property name="text">
+        <string>Generate shell script for rendering frames</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -135,25 +156,27 @@
        </property>
       </spacer>
      </item>
-     <item row="4" column="0" colspan="2">
-      <widget class="QPushButton" name="abortLoadingBtn">
-       <property name="text">
-        <string>&amp;Abort loading</string>
+     <item row="2" column="0" colspan="2">
+      <widget class="QGroupBox" name="groupBox_2">
+       <property name="title">
+        <string>Selections</string>
        </property>
-      </widget>
-     </item>
-     <item row="6" column="0" colspan="2">
-      <widget class="QPushButton" name="abortScriptGenerationBtn">
-       <property name="text">
-        <string>Abort script generation</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0" colspan="2">
-      <widget class="QPushButton" name="generateRenderScriptBtn">
-       <property name="text">
-        <string>Generate shell script for rendering frames</string>
-       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QTreeWidget" name="selectionsWidget">
+          <column>
+           <property name="text">
+            <string>Top-left</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Bottom-right</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </item>
     </layout>
