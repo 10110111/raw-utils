@@ -20,6 +20,7 @@ QGLFormat getGLFormat()
 FrameView::FrameView(QWidget* parent)
     : QGLWidget(getGLFormat(),parent)
 {
+    setMouseTracking(true);
 }
 
 static void printInfoLog(bool statusOK,
@@ -419,4 +420,12 @@ void FrameView::mouseMoveEvent(QMouseEvent* event)
 {
     if(dragging)
         updateLastSelectionRectangle(event->pos());
+
+    const auto posInImage=screenPosToImagePixelPos(vec2(event->pos().x(),event->pos().y()));
+    emit mouseMoved(QPoint(posInImage.x,posInImage.y));
+}
+
+void FrameView::leaveEvent(QEvent*)
+{
+    emit mouseLeft();
 }

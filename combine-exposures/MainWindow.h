@@ -10,6 +10,7 @@
 class FrameView;
 class FramesModel;
 class QProgressBar;
+class QLabel;
 
 class MainWindow : public QMainWindow
 {
@@ -69,6 +70,7 @@ private /* data */:
     FrameView* frameView;
     FramesModel* framesModel;
     QProgressBar* statusProgressBar;
+    QLabel* pixelInfoLabel;
     bool fileLoadingAborted=false;
     bool renderScriptGenerationAborted=false;
     Frame* lastCreatedFile=nullptr;
@@ -85,6 +87,8 @@ private /* methods */:
     Image readImage(Time time) const;
     void loadFiles(std::string const& dir);
     void frameSelectionChanged(QItemSelection const& selected, QItemSelection const& deselected);
+    void onMouseLeftFrameView();
+    void onMouseMoved(QPoint pos);
     void onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
     void onSelectionAdded(glm::ivec2 pointA, glm::ivec2 pointB);
     void onSelectionsRemoved();

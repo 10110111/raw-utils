@@ -58,9 +58,12 @@ signals:
     void wheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
     void selectionAdded(glm::ivec2 pointA, glm::ivec2 pointB);
     void selectionsRemoved();
+    void mouseMoved(QPoint pos);
+    void mouseLeft();
 protected:
     void initializeGL() override;
     void paintGL() override;
+    void leaveEvent(QEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;

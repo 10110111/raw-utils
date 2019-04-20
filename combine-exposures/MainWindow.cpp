@@ -13,6 +13,7 @@
 #include <QWheelEvent>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QLabel>
 
 #if defined __GNUG__ && __GNUC__<8
 #include <experimental/filesystem>
@@ -272,12 +273,15 @@ MainWindow::MainWindow(std::string const& dirToOpen)
             { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByAverage); });
     connect(ui.divideByMaxRB, &QRadioButton::toggled, this, [this](bool checked)
             { if(checked) frameView->setNormalizationMode(FrameView::NormalizationMode::DivideByMax); });
+    connect(frameView, &FrameView::mouseLeft, this, &MainWindow::onMouseLeftFrameView);
+    connect(frameView, &FrameView::mouseMoved, this, &MainWindow::onMouseMoved);
     connect(frameView, &FrameView::wheelScrolled, this, &MainWindow::onWheelScrolled);
     connect(frameView, &FrameView::selectionAdded, this, &MainWindow::onSelectionAdded);
     connect(frameView, &FrameView::selectionsRemoved, this, &MainWindow::onSelectionsRemoved);
 
     statusBar()->addPermanentWidget(statusProgressBar=new QProgressBar(statusBar()));
     statusProgressBar->hide();
+    statusBar()->addPermanentWidget(pixelInfoLabel=new QLabel(this));
 
     if(!dirToOpen.empty())
         QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
@@ -744,4 +748,14 @@ void MainWindow::onWheelScrolled(int delta, Qt::KeyboardModifiers modifiers)
         if(!newIdx.isValid()) return;
     }
     ui.treeView->selectionModel()->setCurrentIndex(newIdx, QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);
+}
+
+void MainWindow::onMouseMoved(QPoint pos)
+{
+    pixelInfoLabel->setText(QString("%1, %2").arg(pos.x()).arg(pos.y()));
+}
+
+void MainWindow::onMouseLeftFrameView()
+{
+    pixelInfoLabel->setText("");
 }
