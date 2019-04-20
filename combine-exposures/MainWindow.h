@@ -94,7 +94,8 @@ private /* methods */:
     void onSelectionsRemoved();
     void openDir();
     void groupFiles();
-    void generateRenderScript();
+    void generateRenderScript(bool saveToFiles=false);
+    void renderFramesToFiles();
     struct PrevExpoMode
     {
         Time timeDist;

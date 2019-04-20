@@ -13,6 +13,7 @@
 #include <QWheelEvent>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QProcess>
 #include <QLabel>
 
 #if defined __GNUG__ && __GNUC__<8
@@ -254,6 +255,7 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     ui.abortScriptGenerationBtn->hide();
     connect(ui.abortScriptGenerationBtn,&QPushButton::clicked, this,[this]{renderScriptGenerationAborted=true;});
     connect(ui.generateRenderScriptBtn,&QPushButton::clicked, this,&MainWindow::generateRenderScript);
+    connect(ui.renderFramesBtn,&QPushButton::clicked, this,&MainWindow::renderFramesToFiles);
     connect(ui.abortLoadingBtn,&QPushButton::clicked, this,[this]{fileLoadingAborted=true;});
     connect(ui.action_Open_directory, &QAction::triggered, this, &MainWindow::openDir);
     connect(ui.action_Quit, &QAction::triggered, qApp, &QApplication::quit);
@@ -302,25 +304,37 @@ void MainWindow::onSelectionsRemoved()
     ui.selectionsWidget->clear();
 }
 
-void MainWindow::generateRenderScript()
+void MainWindow::generateRenderScript(const bool saveToFiles)
 {
+    QString targetDir;
+    if(saveToFiles)
+    {
+        targetDir=QFileDialog::getExistingDirectory(this, tr("Save frames to..."));
+        if(targetDir.isNull())
+            return;
+    }
+
     ui.generateRenderScriptBtn->hide();
+    ui.renderFramesBtn->hide();
     ui.abortScriptGenerationBtn->show();
     statusProgressBar->show();
 
     QString scriptSrc;
-    scriptSrc+=QString("#!/bin/bash -e\n"
-                       "\n"
-                       "outdir=/tmp/%1-frames\n"
-                       "export PATH=$HOME/myprogs/raw-histogram:$PATH\n"
-                       "mkdir \"$outdir\"\n"
-                       "i=0\n").arg(dirFileName);
+    if(!saveToFiles)
+    {
+        scriptSrc+=QString("#!/bin/bash -e\n"
+                           "\n"
+                           "outdir=/tmp/%1-frames\n"
+                           "export PATH=$HOME/myprogs/raw-histogram:$PATH\n"
+                           "mkdir \"$outdir\"\n").arg(dirFileName);
+    }
     renderScriptGenerationAborted=false;
     statusProgressBar->setRange(0, frameGroups.size());
     std::size_t groupsProcessed=0;
     const auto cleanupBeforeStopping=[&]
         {
             ui.generateRenderScriptBtn->show();
+            ui.renderFramesBtn->show();
             ui.abortScriptGenerationBtn->hide();
             statusBar()->clearMessage();
             statusProgressBar->hide();
@@ -354,7 +368,41 @@ void MainWindow::generateRenderScript()
             if(maxVal<1)
             {
                 // OK, this is the frame we want to use
-                scriptSrc+=QString("data2bmp -srgb -p $(printf \"$outdir/frame-PERCENT_FOUR_D-\" $i) \"%1\" -s %2; ((++i))\n").arg(it->second.frame->path).arg(1/maxVal).replace("PERCENT_FOUR_D","%04d");
+                auto command=QString("data2bmp \"%1\" -srgb -p \"$outdir/frame-%2-\" -s %3\n").arg(it->second.frame->path).arg(groupsProcessed-1,4,10,QChar('0')).arg(1/maxVal);
+                if(saveToFiles)
+                {
+                    command.replace("$outdir",targetDir);
+                    command.prepend("export PATH=$HOME/myprogs/raw-histogram:$PATH; ");
+                    QProcess process;
+                    process.start("sh",{"-c",command.toStdString().c_str()});
+                    process.waitForFinished();
+                    if(process.state()!=QProcess::QProcess::NotRunning)
+                    {
+                        QMessageBox::critical(this,tr("Rendering problem"),
+                                              tr("Renderer process has still not finished. Will kill it and abort rendering."));
+                        process.kill();
+                        cleanupBeforeStopping();
+                        return;
+                    }
+                    if(process.exitStatus()!=QProcess::NormalExit)
+                    {
+                        QMessageBox::critical(this,tr("Rendering problem"),
+                                              tr("Renderer process has crashed. Will abort rendering."));
+                        cleanupBeforeStopping();
+                        return;
+                    }
+                    if(process.exitCode()!=0)
+                    {
+                        QMessageBox::critical(this,tr("Rendering problem"),
+                                              tr("Renderer process has exited with error code %1. Will abort rendering.").arg(process.exitCode()));
+                        cleanupBeforeStopping();
+                        return;
+                    }
+                }
+                else
+                {
+                    scriptSrc+=command;
+                }
                 lineGenerated=true;
                 break;
             }
@@ -377,22 +425,30 @@ void MainWindow::generateRenderScript()
     }
     cleanupBeforeStopping();
 
-    scriptSrc+="ffmpeg -i \"$outdir/frame-%04d-merged-srgb.bmp\" -r 16 video.mp4\n";
+    if(!saveToFiles)
+    {
+        scriptSrc+="ffmpeg -i \"$outdir/frame-%04d-merged-srgb.bmp\" -r 16 video.mp4\n";
 
-    QDialog dialog;
-    dialog.setWindowTitle(tr("Render script"));
-    const auto layout=new QVBoxLayout(&dialog);
-    const auto textWidget=new QTextEdit(&dialog);
-    textWidget->setReadOnly(true);
-    textWidget->setAcceptRichText(false);
-    textWidget->setTabChangesFocus(true);
-    textWidget->setLineWrapMode(QTextEdit::NoWrap);
-    textWidget->setPlainText(scriptSrc);
-    layout->addWidget(textWidget);
-    const auto buttonBox=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);
-    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    layout->addWidget(buttonBox);
-    dialog.exec();
+        QDialog dialog;
+        dialog.setWindowTitle(tr("Render script"));
+        const auto layout=new QVBoxLayout(&dialog);
+        const auto textWidget=new QTextEdit(&dialog);
+        textWidget->setReadOnly(true);
+        textWidget->setAcceptRichText(false);
+        textWidget->setTabChangesFocus(true);
+        textWidget->setLineWrapMode(QTextEdit::NoWrap);
+        textWidget->setPlainText(scriptSrc);
+        layout->addWidget(textWidget);
+        const auto buttonBox=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);
+        connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        layout->addWidget(buttonBox);
+        dialog.exec();
+    }
+}
+
+void MainWindow::renderFramesToFiles()
+{
+    generateRenderScript(true);
 }
 
 void MainWindow::openDir()
@@ -506,6 +562,7 @@ void MainWindow::loadFiles(std::string const& dir)
 {
     fileLoadingAborted=false;
     ui.generateRenderScriptBtn->hide();
+    ui.renderFramesBtn->hide();
     ui.abortLoadingBtn->show();
     framesModel->removeRows(0,framesModel->rowCount());
     filesMap.clear();
@@ -573,6 +630,7 @@ void MainWindow::loadFiles(std::string const& dir)
         statusProgressBar->hide();
         ui.abortLoadingBtn->hide();
         ui.generateRenderScriptBtn->show();
+        ui.renderFramesBtn->show();
     }
 
     // Initialize total exposure values (using only the data we know
@@ -624,6 +682,7 @@ void MainWindow::loadFiles(std::string const& dir)
     groupFiles();
 
     ui.generateRenderScriptBtn->show();
+    ui.renderFramesBtn->show();
 }
 
 void MainWindow::frameSelectionChanged(QItemSelection const& selected,
