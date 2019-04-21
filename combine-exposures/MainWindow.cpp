@@ -34,6 +34,7 @@ namespace filesystem=std::filesystem;
 #include <map>
 
 #include "util.h"
+#include "timing.h"
 
 static constexpr auto sqr=[](auto x){return x*x;};
 using std::isnan;
@@ -391,10 +392,12 @@ void MainWindow::generateRenderScript(const bool saveToFiles)
             ui.abortScriptGenerationBtn->hide();
             statusBar()->clearMessage();
             statusProgressBar->hide();
+            statusProgressBar->resetFormat();
         };
+    const auto timeBegin=currentTime();
     for(auto const& group : frameGroups)
     {
-        statusProgressBar->setValue(groupsProcessed++);
+        statusProgressBar->setValue(groupsProcessed);
         struct FrameInfo
         {
             Frame const* frame;
@@ -421,7 +424,7 @@ void MainWindow::generateRenderScript(const bool saveToFiles)
             if(maxVal<1)
             {
                 // OK, this is the frame we want to use
-                auto command=QString("data2bmp \"%1\" -srgb -p \"$outdir/frame-%2-\" -s %3 # expo=%4\n").arg(it->second.frame->path).arg(groupsProcessed-1,4,10,QChar('0')).arg(1/maxVal).arg(it->first);
+                auto command=QString("data2bmp \"%1\" -srgb -p \"$outdir/frame-%2-\" -s %3 # expo=%4\n").arg(it->second.frame->path).arg(groupsProcessed,4,10,QChar('0')).arg(1/maxVal).arg(it->first);
                 if(saveToFiles)
                 {
                     command.replace("$outdir",targetDir);
@@ -475,6 +478,13 @@ void MainWindow::generateRenderScript(const bool saveToFiles)
             cleanupBeforeStopping();
             return;
         }
+        ++groupsProcessed;
+
+        const auto timeEnd=currentTime();
+        const auto timePerGroup=(timeEnd-timeBegin)/groupsProcessed;
+        const auto timeRemaining=timePerGroup*(frameGroups.size()-groupsProcessed);
+        const auto eta=QDateTime::currentDateTime().addSecs(timeRemaining);
+        statusProgressBar->setFormat(QString("%p% (ETA: %1)").arg(eta.toString("yyyy-MM-dd HH:mm:ss")));
     }
     cleanupBeforeStopping();
 
