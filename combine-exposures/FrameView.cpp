@@ -405,6 +405,21 @@ void FrameView::gatherSelectedPixelsInfo(vec3 const* imageData, int imgWidth, in
     }
 }
 
+void FrameView::addSelection(ivec2 pointA, ivec2 pointB)
+{
+    selections.emplace_back(Selection{pointA,pointB});
+    emit selectionAdded(selections.back().pointA, selections.back().pointB);
+    updateSelectedPixelsInfo();
+    update();
+}
+
+void FrameView::removeSelection(unsigned index)
+{
+    selections.erase(selections.begin()+index);
+    updateSelectedPixelsInfo();
+    update();
+}
+
 void FrameView::mouseReleaseEvent(QMouseEvent* event)
 {
     if(!(event->buttons()&Qt::LeftButton)) // the button should be released, so its state should be 0

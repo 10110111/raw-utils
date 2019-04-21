@@ -96,6 +96,8 @@ private /* methods */:
     void groupFiles();
     void generateRenderScript(bool saveToFiles=false);
     void renderFramesToFiles();
+    void addSelectionClicked();
+    void removeSelectionClicked();
     struct PrevExpoMode
     {
         Time timeDist;

@@ -281,12 +281,65 @@ MainWindow::MainWindow(std::string const& dirToOpen)
     connect(frameView, &FrameView::selectionAdded, this, &MainWindow::onSelectionAdded);
     connect(frameView, &FrameView::selectionsRemoved, this, &MainWindow::onSelectionsRemoved);
 
+    connect(ui.addSelectionBtn, &QPushButton::clicked, this, &MainWindow::addSelectionClicked);
+    connect(ui.removeSelectionBtn, &QPushButton::clicked, this, &MainWindow::removeSelectionClicked);
+
     statusBar()->addPermanentWidget(statusProgressBar=new QProgressBar(statusBar()));
     statusProgressBar->hide();
     statusBar()->addPermanentWidget(pixelInfoLabel=new QLabel(this));
 
     if(!dirToOpen.empty())
         QMetaObject::invokeMethod(this,[this,dirToOpen]{loadFiles(dirToOpen);},Qt::QueuedConnection);
+}
+
+void MainWindow::addSelectionClicked()
+{
+    const auto widthMax=5000, heightMax=3000;
+    QDialog dialog;
+    const auto layout=new QGridLayout(&dialog);
+    dialog.setLayout(layout);
+    layout->addWidget(new QLabel(tr("Corner 1 x:")), 0,0);
+    const auto corner1x=new QSpinBox(&dialog);
+    corner1x->setRange(0,widthMax);
+    layout->addWidget(corner1x, 0,1);
+    layout->addWidget(new QLabel(tr(", y:")), 0,2);
+    const auto corner1y=new QSpinBox(&dialog);
+    corner1y->setRange(0,heightMax);
+    layout->addWidget(corner1y, 0,3);
+    layout->addWidget(new QLabel(tr("Corner 2 x:")), 1,0);
+    const auto corner2x=new QSpinBox(&dialog);
+    corner2x->setRange(0,widthMax);
+    layout->addWidget(corner2x, 1,1);
+    layout->addWidget(new QLabel(tr(", y:")), 1,2);
+    const auto corner2y=new QSpinBox(&dialog);
+    corner2y->setRange(0,heightMax);
+    layout->addWidget(corner2y, 1,3);
+    const auto buttonBox=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+    layout->addWidget(buttonBox, 2,0,1,4);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+    if(!dialog.exec()) return;
+    if(corner1x->value()-corner2x->value()==0 ||
+       corner1y->value()-corner2y->value()==0)
+    {
+        QMessageBox::critical(this,tr("Bad selection"),tr("Selection must have non-zero area"));
+        return;
+    }
+
+    frameView->addSelection({corner1x->value(),corner1y->value()},
+                            {corner2x->value(),corner2y->value()});
+    // tree widget will be updated by onSelectionAdded()
+}
+
+void MainWindow::removeSelectionClicked()
+{
+    const auto item=ui.selectionsWidget->currentItem();
+    if(!item) return; // FIXME: it's better to disable the Remove button when nothing is selected in the tree
+    const auto index=ui.selectionsWidget->indexOfTopLevelItem(item);
+    assert(index>=0);
+    frameView->removeSelection(index);
+    delete item;
 }
 
 void MainWindow::onSelectionAdded(glm::ivec2 pointA, glm::ivec2 pointB)

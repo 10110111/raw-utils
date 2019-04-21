@@ -53,6 +53,8 @@ public:
                                   int imgWidth, int imgHeight,
                                   glm::vec3& maxFromSelectedPixels,
                                   glm::vec3& averageOfSelectedPixels) const;
+    void addSelection(glm::ivec2 pointA, glm::ivec2 pointB);
+    void removeSelection(unsigned index);
 
 signals:
     void wheelScrolled(int delta, Qt::KeyboardModifiers modifiers);
