@@ -421,7 +421,7 @@ void MainWindow::generateRenderScript(const bool saveToFiles)
             if(maxVal<1)
             {
                 // OK, this is the frame we want to use
-                auto command=QString("data2bmp \"%1\" -srgb -p \"$outdir/frame-%2-\" -s %3\n").arg(it->second.frame->path).arg(groupsProcessed-1,4,10,QChar('0')).arg(1/maxVal);
+                auto command=QString("data2bmp \"%1\" -srgb -p \"$outdir/frame-%2-\" -s %3 # expo=%4\n").arg(it->second.frame->path).arg(groupsProcessed-1,4,10,QChar('0')).arg(1/maxVal).arg(it->first);
                 if(saveToFiles)
                 {
                     command.replace("$outdir",targetDir);
