@@ -69,7 +69,7 @@ bool printAverageColor(LibRaw& libRaw, const ushort (*img)[4], int xmin, int xma
             }
         }
     }
-    const auto count=double(ymax-ymin)*(xmax-xmin);
+    const auto count=double(ymax-ymin)*(xmax-xmin)/4;
     red/=count;
     green1/=count;
     green2/=count;
