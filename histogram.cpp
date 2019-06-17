@@ -12,7 +12,7 @@ using std::size_t;
 
 inline int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: " << argv0 << " [--mma|--csv] filename\n";
+    std::cerr << "Usage: " << argv0 << " [--mma|--csv] [--white-balance] filename\n";
     return returnValue;
 }
 
@@ -117,29 +117,37 @@ int main(int argc, char** argv)
 {
     if(argc!=2 && argc!=3)
         return usage(argv[0],1);
-    const char* filename=argv[1];
+    std::string filename=argv[1];
     PrintFormat format=PrintFormat::CSV;
     bool enableWhiteBalance=false;
-    if(argc>2)
+    for(int i=1;i<argc;++i)
     {
-        const auto mma=std::string("--mma");
-        const auto csv=std::string("--csv");
-        const auto enableWhiteBalanceOpt=std::string("--white-balance");
-        if(argv[1]==mma)
-        {
-            format=PrintFormat::Mathematica;
-            filename=argv[2];
-        }
-        else if(argv[2]==mma)
+        const auto arg=std::string(argv[i]);
+        if(arg=="--mma")
         {
             format=PrintFormat::Mathematica;
         }
-        else if(argv[2]==enableWhiteBalanceOpt)
+        else if(arg=="--csv")
+        {
+            format=PrintFormat::CSV;
+        }
+        else if(arg=="--white-balance")
         {
             enableWhiteBalance=true;
         }
-        else if(argv[1]!=csv && argv[2]!=csv)
+        else if(filename.empty() && !arg.empty() && arg[0]!='-')
+        {
+            filename=arg;
+        }
+        else if(arg=="-h" || arg=="--help")
+        {
+            return usage(argv[0],0);
+        }
+        else if(!arg.empty() && arg[0]=='-')
+        {
+            std::cerr << "Unknown option " << arg << "\n";
             return usage(argv[0],1);
+        }
     }
 
     if(enableWhiteBalance)
@@ -147,7 +155,7 @@ int main(int argc, char** argv)
     else
         std::cerr << "Will print unbalanced raw histogram\n";
     LibRaw libRaw;
-    libRaw.open_file(filename);
+    libRaw.open_file(filename.c_str());
     const auto& sizes=libRaw.imgdata.sizes;
 
     std::cerr << "Unpacking raw data...\n";
