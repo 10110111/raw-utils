@@ -119,10 +119,12 @@ int main(int argc, char** argv)
         return usage(argv[0],1);
     const char* filename=argv[1];
     PrintFormat format=PrintFormat::CSV;
+    bool enableWhiteBalance=false;
     if(argc>2)
     {
         const auto mma=std::string("--mma");
         const auto csv=std::string("--csv");
+        const auto enableWhiteBalanceOpt=std::string("--white-balance");
         if(argv[1]==mma)
         {
             format=PrintFormat::Mathematica;
@@ -132,9 +134,18 @@ int main(int argc, char** argv)
         {
             format=PrintFormat::Mathematica;
         }
+        else if(argv[2]==enableWhiteBalanceOpt)
+        {
+            enableWhiteBalance=true;
+        }
         else if(argv[1]!=csv && argv[2]!=csv)
             return usage(argv[0],1);
     }
+
+    if(enableWhiteBalance)
+        std::cerr << "Will use camera-supplied \"as-shot\" white balance coefficients\n";
+    else
+        std::cerr << "Will print unbalanced raw histogram\n";
     LibRaw libRaw;
     libRaw.open_file(filename);
     const auto& sizes=libRaw.imgdata.sizes;
@@ -153,5 +164,7 @@ int main(int argc, char** argv)
     const auto& cam_mul=libRaw.imgdata.color.cam_mul;
     const float camMulMax=*std::max_element(std::begin(cam_mul),std::end(cam_mul));
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
-    printImageHistogram(libRaw,libRaw.imgdata.image,sizes.iwidth,sizes.iheight,libRaw.imgdata.color.black,libRaw.imgdata.color.maximum,rgbCoefs,format);
+    const float ones[4]={1,1,1,1};
+    printImageHistogram(libRaw, libRaw.imgdata.image, sizes.iwidth,sizes.iheight, libRaw.imgdata.color.black,
+                        libRaw.imgdata.color.maximum, enableWhiteBalance ? rgbCoefs : ones,format);
 }
