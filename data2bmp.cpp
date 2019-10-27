@@ -7,6 +7,9 @@
 #include <cassert>
 #include <vector>
 #include <cmath>
+#define cimg_use_tiff
+#define cimg_display 0
+#include <CImg.h>
 
 using std::uint8_t;
 using std::size_t;
@@ -15,6 +18,7 @@ bool needTrueSRGB=false;
 bool needFakeSRGB=false;
 bool needChromaOnlyFile=false;
 bool needCombinedFile=false;
+bool needTIFFFile=false;
 bool needRedFile=false;
 bool needGreen1File=false;
 bool needGreen2File=false;
@@ -32,6 +36,9 @@ inline int usage(const char* argv0, int returnValue)
                  "                       conversion matrix and stripping brightness info\n"
               << "  --fake-srgb         Similar to -srgb, but without applying the conversion matrix\n"
               << "  --combined          Create a file containing RGGB data on the Bayer grid, coded by sRGB colors\n"
+              << "  --tiff              Create a floating-point TIFF RGB file containing merged RGGB data from the Bayer grid,\n"
+                 "                       with green being average of the two Bayer values. Color space is sRGB-linear, values are\n"
+                 "                       normalized to maximum possible value of the raw file (taken from libRaw).\n"
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
@@ -149,6 +156,39 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         std::cerr << " written to \"" << FILENAME << "\"\n";        \
     } while(0)
 
+#define WRITE_TIFF_DATA_TO_FILE(ANNOTATION,FILENAME,WIDTH,HEIGHT)                                                           \
+    do {                                                                                                                    \
+        std::cerr << ANNOTATION;                                                                                            \
+        const int stride=WIDTH;                                                                                                 \
+        const auto W=WIDTH/2, H=HEIGHT/2;                                                                                   \
+        cimg_library::CImg<float> image(W,H, 1,3);                                                                          \
+        float* pixels=image.data();                                                                                         \
+        for(int y=0;y<H;++y)                                                                                                \
+            for(int x=0;x<W;++x)                                                                                            \
+            {                                                                                                               \
+                const auto X=x*2, Y=y*2;                                                                                    \
+                bool overexposed=false;                                                                                     \
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][BAYER_RED]   ,overexposed);     \
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][BAYER_GREEN1],overexposed);     \
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][BAYER_GREEN2],overexposed);     \
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BAYER_BLUE]  ,overexposed);     \
+                const auto green=(pixelTopRight+pixelBottomLeft)/2.;                                                        \
+                const auto red=pixelTopLeft, blue=pixelBottomRight;                                                         \
+                const auto& cam2srgb=colorData.rgb_cam;                                                                     \
+                const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;                              \
+                const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;                              \
+                const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;                              \
+                pixels[W*H*0+(x+y*W)] = pixelScale*srgblR/(white-black);                                                    \
+                pixels[W*H*1+(x+y*W)] = pixelScale*srgblG/(white-black);                                                    \
+                pixels[W*H*2+(x+y*W)] = pixelScale*srgblB/(white-black);                                                    \
+            }                                                                                                               \
+        if(!image.save((FILENAME).c_str()))                                                                                 \
+            std::cerr << "failed to save \"" << (FILENAME) << "\"\n";                                                       \
+        else                                                                                                                \
+            std::cerr << "written to \"" << (FILENAME) << "\"\n";                                                           \
+    } while(0);
+
+    enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
     if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile)
     {
         std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...";
@@ -178,7 +218,6 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         ByteBuffer bytes_chroma(header.fileSize);
         if(needChromaOnlyFile)
             bytes_chroma.write(&header,sizeof header);
-        enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
         for(int y=h-1;y>=0;--y)
         {
             for(int x=0;x<w;++x)
@@ -260,6 +299,11 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     if(needGreen2File)
         WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...",filePathPrefix+"Green2.bmp",col(0),col(pixelG2),col(0));
 
+    if(needTIFFFile)
+    {
+        WRITE_TIFF_DATA_TO_FILE("Writing combined-channel data to TIFF file...", filePathPrefix+"merged.tiff", w,h);
+    }
+
 }
 
 int main(int argc, char** argv)
@@ -279,6 +323,7 @@ int main(int argc, char** argv)
         else if(arg=="--fake-srgb")       needFakeSRGB=true;
         else if(arg=="--chroma"||arg=="-chroma")   needChromaOnlyFile=true;
         else if(arg=="--combined" || arg=="-comb") needCombinedFile=true;
+        else if(arg=="--tiff" || arg=="-tif") needTIFFFile=true;
         else if(arg=="-r" || arg=="--red") needRedFile=true;
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
