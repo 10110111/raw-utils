@@ -178,17 +178,17 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         ByteBuffer bytes_chroma(header.fileSize);
         if(needChromaOnlyFile)
             bytes_chroma.write(&header,sizeof header);
-        enum {RED,GREEN1,BLUE,GREEN2};
+        enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
         for(int y=h-1;y>=0;--y)
         {
             for(int x=0;x<w;++x)
             {
                 const auto X=x*2, Y=y*2;
                 bool overexposed=false;
-                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][RED]   ,overexposed);
-                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][GREEN1],overexposed);
-                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][GREEN2],overexposed);
-                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BLUE]  ,overexposed);
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][BAYER_RED]   ,overexposed);
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][BAYER_GREEN1],overexposed);
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][BAYER_GREEN2],overexposed);
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BAYER_BLUE]  ,overexposed);
                 const auto green=(pixelTopRight+pixelBottomLeft)/2.;
                 const auto red=pixelTopLeft, blue=pixelBottomRight;
                 const uint8_t vals[3]={overexposed?uint8_t(255):col(blue),
