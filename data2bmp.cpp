@@ -159,7 +159,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
 #define WRITE_TIFF_DATA_TO_FILE(ANNOTATION,FILENAME,WIDTH,HEIGHT)                                                           \
     do {                                                                                                                    \
         std::cerr << ANNOTATION;                                                                                            \
-        const int stride=WIDTH;                                                                                                 \
+        const int stride=WIDTH;                                                                                             \
         const auto W=WIDTH/2, H=HEIGHT/2;                                                                                   \
         cimg_library::CImg<float> image(W,H, 1,3);                                                                          \
         float* pixels=image.data();                                                                                         \
