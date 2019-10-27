@@ -19,6 +19,7 @@ bool needFakeSRGB=false;
 bool needChromaOnlyFile=false;
 bool needCombinedFile=false;
 bool needTIFFFile=false;
+bool needUnweightedTIFF=false;
 bool needRedFile=false;
 bool needGreen1File=false;
 bool needGreen2File=false;
@@ -39,6 +40,8 @@ inline int usage(const char* argv0, int returnValue)
               << "  --tiff              Create a floating-point TIFF RGB file containing merged RGGB data from the Bayer grid,\n"
                  "                       with green being average of the two Bayer values. Color space is sRGB-linear, values are\n"
                  "                       normalized to maximum possible value of the raw file (taken from libRaw).\n"
+              << "  --tiff-unw          Same as --tiff, but without applying cam_rgb matrix and without white balancing - only\n"
+                 "                       averaging the two Bayer green channels.\n"
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
@@ -163,18 +166,20 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         const auto W=WIDTH/2, H=HEIGHT/2;                                                                                   \
         cimg_library::CImg<float> image(W,H, 1,3);                                                                          \
         float* pixels=image.data();                                                                                         \
+        const float identity[3][4]={{1,0,0,0},{0,1,0,0},{0,0,1,0}};                                                         \
+        const auto subBlack=[black](ushort p) {return (p<black ? black : p)-black; };                                       \
         for(int y=0;y<H;++y)                                                                                                \
             for(int x=0;x<W;++x)                                                                                            \
             {                                                                                                               \
                 const auto X=x*2, Y=y*2;                                                                                    \
                 bool overexposed=false;                                                                                     \
-                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][BAYER_RED]   ,overexposed);     \
-                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][BAYER_GREEN1],overexposed);     \
-                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][BAYER_GREEN2],overexposed);     \
-                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BAYER_BLUE]  ,overexposed);     \
+                const ushort pixelTopLeft    =rgbCoefR *subBlack(data[X+0+(Y+0)*stride][BAYER_RED]   );                     \
+                const ushort pixelTopRight   =rgbCoefG1*subBlack(data[X+1+(Y+0)*stride][BAYER_GREEN1]);                     \
+                const ushort pixelBottomLeft =rgbCoefG2*subBlack(data[X+0+(Y+1)*stride][BAYER_GREEN2]);                     \
+                const ushort pixelBottomRight=rgbCoefB *subBlack(data[X+1+(Y+1)*stride][BAYER_BLUE]  );                     \
                 const auto green=(pixelTopRight+pixelBottomLeft)/2.;                                                        \
                 const auto red=pixelTopLeft, blue=pixelBottomRight;                                                         \
-                const auto& cam2srgb=colorData.rgb_cam;                                                                     \
+                const auto& cam2srgb = needUnweightedTIFF ? identity : colorData.rgb_cam;                                   \
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;                              \
                 const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;                              \
                 const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;                              \
@@ -299,10 +304,8 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     if(needGreen2File)
         WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...",filePathPrefix+"Green2.bmp",col(0),col(pixelG2),col(0));
 
-    if(needTIFFFile)
-    {
+    if(needTIFFFile || needUnweightedTIFF)
         WRITE_TIFF_DATA_TO_FILE("Writing combined-channel data to TIFF file...", filePathPrefix+"merged.tiff", w,h);
-    }
 
 }
 
@@ -324,6 +327,11 @@ int main(int argc, char** argv)
         else if(arg=="--chroma"||arg=="-chroma")   needChromaOnlyFile=true;
         else if(arg=="--combined" || arg=="-comb") needCombinedFile=true;
         else if(arg=="--tiff" || arg=="-tif") needTIFFFile=true;
+        else if(arg=="--tiff-unw")
+        {
+            needUnweightedTIFF=true;
+            whiteBalance=WhiteBalance::None;
+        }
         else if(arg=="-r" || arg=="--red") needRedFile=true;
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
