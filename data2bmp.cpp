@@ -20,6 +20,7 @@ bool needChromaOnlyFile=false;
 bool needCombinedFile=false;
 bool needTIFFFile=false;
 bool needUnweightedTIFF=false;
+bool needF32=false;
 bool needRedFile=false;
 bool needGreen1File=false;
 bool needGreen2File=false;
@@ -42,6 +43,7 @@ inline int usage(const char* argv0, int returnValue)
                  "                       normalized to maximum possible value of the raw file (taken from libRaw).\n"
               << "  --tiff-unw          Same as --tiff, but without applying cam_rgb matrix and without white balancing - only\n"
                  "                       averaging the two Bayer green channels.\n"
+              << "  --f32               Save as floating-point single-component texture with header being uint16 width & height\n"
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
@@ -53,6 +55,29 @@ inline int usage(const char* argv0, int returnValue)
                  "                       in libraw), and 'none' means the coefficients will be all equal to one.\n"
               ;
     return returnValue;
+}
+
+void writeF32(LibRaw& libRaw, ushort (*img)[4], const uint16_t w, const uint16_t h, const unsigned blackLevel)
+{
+    const auto filename=filePathPrefix+".f32";
+    std::cerr << "Writing float32 data to file...";
+    std::ofstream file(filename, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(&w), sizeof w);
+    file.write(reinterpret_cast<const char*>(&h), sizeof h);
+    for(int y=0;y<h;++y)
+    {
+        for(int x=0;x<w;++x)
+        {
+            const auto colIndex=libRaw.FC(y,x);
+            const float pixelRaw=img[x+y*w][colIndex];
+            const float pixel=pixelRaw-blackLevel;
+            file.write(reinterpret_cast<const char*>(&pixel), sizeof pixel);
+        }
+    }
+    if(file.flush())
+        std::cerr << " written to \"" << filename << "\"\n";
+    else
+        std::cerr << " failed to write to \"" << filename << "\"\n";
 }
 
 #pragma pack(push,1)
@@ -332,6 +357,7 @@ int main(int argc, char** argv)
             needUnweightedTIFF=true;
             whiteBalance=WhiteBalance::None;
         }
+        else if(arg=="--f32" || arg=="-f32") needF32=true;
         else if(arg=="-r" || arg=="--red") needRedFile=true;
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
@@ -425,10 +451,17 @@ int main(int argc, char** argv)
     const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
     const float daylightWBCoefs[4]={pre_mul[0]/preMulMax,pre_mul[1]/preMulMax,pre_mul[2]/preMulMax,(pre_mul[3]==0 ? pre_mul[1] : pre_mul[3])/preMulMax};
     const float noWBCoefs[4]={1,1,1,1};
-    writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
-                          whiteBalance==WhiteBalance::Daylight ? daylightWBCoefs :
-                           whiteBalance==WhiteBalance::AsShot ? asShotWBCoefs :
-                            noWBCoefs,
-                          libRaw.imgdata.rawdata.color,
-                          customWhiteLevel ? customWhiteLevel : libRaw.imgdata.rawdata.color.maximum);
+    if(needF32)
+    {
+        writeF32(libRaw, libRaw.imgdata.image,sizes.iwidth,sizes.iheight, libRaw.imgdata.rawdata.color.black);
+    }
+    else
+    {
+        writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
+                              whiteBalance==WhiteBalance::Daylight ? daylightWBCoefs :
+                               whiteBalance==WhiteBalance::AsShot ? asShotWBCoefs :
+                                noWBCoefs,
+                              libRaw.imgdata.rawdata.color,
+                              customWhiteLevel ? customWhiteLevel : libRaw.imgdata.rawdata.color.maximum);
+    }
 }
