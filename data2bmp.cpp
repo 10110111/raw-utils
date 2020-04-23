@@ -426,6 +426,7 @@ int main(int argc, char** argv)
                 std::cerr << "Matrix must be specified as a sequence of " << cam2sRGBsize  << " comma-separated values (in row-major order).\n";
                 return usage(argv[0],1);
             }
+            customCam2sRGBmatrix=true;
         }
         else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
         else if(arg=="-s" || arg=="--scale")
