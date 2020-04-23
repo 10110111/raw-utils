@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstring>
 #include <cassert>
+#include <sstream>
 #include <vector>
 #include <cmath>
 #define cimg_use_tiff
@@ -53,8 +54,22 @@ inline int usage(const char* argv0, int returnValue)
               << "  -wb,--white-balance {as-shot|daylight|none}  Use the white balance mode specified. 'as-shot' means the white\n"
                  "                       balance chosen by the camera (cam_mul in libraw), 'daylight' is the daylight WB (pre_mul\n"
                  "                       in libraw), and 'none' means the coefficients will be all equal to one.\n"
+              << "  --cam2srgb M11,M12,M13,M21,M22,M23,M31,M32,M33\n"
+                 "                       Use the custom camera-to-sRGB matrix. White balance options will be ignored.\n"
               ;
     return returnValue;
+}
+
+bool parseMatrix(float* data, const unsigned size, std::string const& line)
+{
+    std::istringstream s(line);
+    for(unsigned i=0;i<size;++i)
+    {
+        s >> data[i];
+        if(!s) return false;
+        if(i+1<size && s.get()!=',') return false;
+    }
+    return true;
 }
 
 void writeF32(LibRaw& libRaw, ushort (*img)[4], const uint16_t w, const uint16_t h, const unsigned blackLevel)
@@ -339,11 +354,15 @@ int main(int argc, char** argv)
     std::string filename;
     enum class WhiteBalance
     {
+        Default,
         Daylight,
         AsShot,
         None,
-    } whiteBalance=WhiteBalance::Daylight;
+    } whiteBalance=WhiteBalance::Default;
     unsigned customWhiteLevel=0;
+    constexpr auto cam2sRGBsize=9;
+    float cam2sRGB[cam2sRGBsize];
+    bool customCam2sRGBmatrix=false;
     for(int i=1;i<argc;++i)
     {
         const std::string arg(argv[i]);
@@ -392,6 +411,20 @@ int main(int argc, char** argv)
             {
                 std::cerr << "Unknown white balance mode \"" << arg << "\"\n";
                 return 1;
+            }
+        }
+        else if(arg=="--cam2srgb")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            const std::string arg(argv[i]);
+            if(!parseMatrix(cam2sRGB, cam2sRGBsize, arg))
+            {
+                std::cerr << "Matrix must be specified as a sequence of " << cam2sRGBsize  << " comma-separated values (in row-major order).\n";
+                return usage(argv[0],1);
             }
         }
         else if(arg=="-h" || arg=="--help") return usage(argv[0],0);
@@ -451,6 +484,19 @@ int main(int argc, char** argv)
     const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
     const float daylightWBCoefs[4]={pre_mul[0]/preMulMax,pre_mul[1]/preMulMax,pre_mul[2]/preMulMax,(pre_mul[3]==0 ? pre_mul[1] : pre_mul[3])/preMulMax};
     const float noWBCoefs[4]={1,1,1,1};
+
+    if(customCam2sRGBmatrix)
+    {
+        if(whiteBalance!=WhiteBalance::Default)
+            std::cerr << "Warning: white balance option is ignored when custom camera-to-sRGB matrix is specified\n";
+        whiteBalance=WhiteBalance::None;
+        for(unsigned row=0;row<3;++row)
+            for(unsigned col=0;col<3;++col)
+                libRaw.imgdata.rawdata.color.rgb_cam[row][col]=cam2sRGB[row*3+col];
+    }
+    else if(whiteBalance==WhiteBalance::Default)
+        whiteBalance=WhiteBalance::Daylight;
+
     if(needF32)
     {
         writeF32(libRaw, libRaw.imgdata.image,sizes.iwidth,sizes.iheight, libRaw.imgdata.rawdata.color.black);
