@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cassert>
 #include <sstream>
+#include <numeric>
 #include <vector>
 #include <cmath>
 #define cimg_use_tiff
@@ -31,6 +32,7 @@ bool needBlueFile=false;
 bool needPackedRedFile=false;
 bool needPackedGreenFile=false;
 bool needPackedBlueFile=false;
+bool needRotatedPackedGreensFile=false;
 
 float pixelScale=1;
 std::string filePathPrefix="/tmp/outfile-";
@@ -53,6 +55,8 @@ inline int usage(const char* argv0, int returnValue)
         {{"-pr","--packed-red"},    "Create a file with red channel only data on the Bayer grid, packed into adjacent pixels"},
         {{"-pg","--packed-green"},  "Create a file with data only from both green channels on the Bayer grid, packed into adjacent pixels"},
         {{"-pb","--packed-blue"},   "Create a file with blue channel only data on the Bayer grid, packed into adjacent pixels"},
+        {{"-prg","--packed-rotated-greens"},
+                                    "Create a file with green channels on the Bayer grid, rotated by 45° and packed into adjacent pixels"},
         {{"-s","--scale"},          "R",
                                     "Scale pixel values by factor R"},
         {{"-p","--prefix"},         "PATH",
@@ -142,6 +146,12 @@ public:
         assert(offset+count<=bytes.size());
         std::memcpy(bytes.data()+offset,data,count);
         offset+=count;
+    }
+    void writeAt(const void* data, const size_type count, const size_type offset)
+    {
+        assert(offset+count<=bytes.size());
+        assert(std::accumulate(bytes.data()+offset, bytes.data()+offset+count, 0)==0);
+        std::memcpy(bytes.data()+offset,data,count);
     }
     size_type size() const { return bytes.size(); }
     size_type tellp() const { return offset; }
@@ -241,7 +251,9 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     } while(0);
 
     enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
-    if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile || needPackedRedFile || needPackedGreenFile || needPackedBlueFile)
+    if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile ||
+       needPackedRedFile || needPackedGreenFile || needPackedBlueFile ||
+       needRotatedPackedGreensFile)
     {
         std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...";
 
@@ -283,6 +295,20 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         if(needPackedBlueFile)
             bytes_blue.write(&header,sizeof header);
 
+        // Raw RGB greens rotated by 45° and mapped to sRGB pixels in another output image
+        ByteBuffer bytes_rotGreen(0);
+        const auto rotGreenSide=w+h-1;
+        const auto rotGreenStride=(rotGreenSide*3+3)&~3;
+        if(needRotatedPackedGreensFile)
+        {
+            auto modifiedHeader=header;
+            modifiedHeader.width = rotGreenSide;
+            modifiedHeader.height = -rotGreenSide;
+            modifiedHeader.fileSize=rotGreenStride*rotGreenSide*3+sizeof modifiedHeader;
+            bytes_rotGreen.resize(modifiedHeader.fileSize);
+            bytes_rotGreen.write(&modifiedHeader,sizeof modifiedHeader);
+        }
+
         for(int y=h-1;y>=0;--y)
         {
             for(int x=0;x<w;++x)
@@ -307,6 +333,13 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                     bytes_green.write(std::array<uint8_t,3>{0,vals[1],0}.data(), 3);
                 if(needPackedBlueFile)
                     bytes_blue.write(std::array<uint8_t,3>{0,0,vals[2]}.data(), 3);
+                if(needRotatedPackedGreensFile)
+                {
+                    const auto g2offset=(h-1+x-y)*3+rotGreenStride*(x+y);
+                    const auto g1offset=g2offset+3;
+                    bytes_rotGreen.writeAt(std::array<uint8_t,3>{0,col(pixelTopRight  ),0}.data(), 3, g1offset);
+                    bytes_rotGreen.writeAt(std::array<uint8_t,3>{0,col(pixelBottomLeft),0}.data(), 3, g2offset);
+                }
 
                 const auto& cam2srgb=colorData.rgb_cam;
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
@@ -382,6 +415,13 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             file.write(bytes_blue.data(),bytes_blue.size());
             std::cerr << " written to \"" << filename << "\"\n";
         }
+        if(needRotatedPackedGreensFile)
+        {
+            const auto filename=filePathPrefix+"packed-rotated-greens.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes_rotGreen.data(),bytes_rotGreen.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
     }
     if(needCombinedFile)
         WRITE_BMP_DATA_TO_FILE("Writing combined-channel data to file...",
@@ -441,6 +481,7 @@ int main(int argc, char** argv)
         else if(arg=="-pr" || arg=="--packed-red") needPackedRedFile=true;
         else if(arg=="-pg" || arg=="--packed-green") needPackedGreenFile=true;
         else if(arg=="-pb" || arg=="--packed-blue") needPackedBlueFile=true;
+        else if(arg=="-prg" || arg=="--packed-rotated-greens") needRotatedPackedGreensFile=true;
         else if(arg=="-w" || arg=="--white-level")
         {
             if(++i==argc)
