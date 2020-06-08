@@ -25,6 +25,7 @@ bool needF32=false;
 bool needRedFile=false;
 bool needGreen1File=false;
 bool needGreen2File=false;
+bool needGreen12File=false;
 bool needBlueFile=false;
 
 float pixelScale=1;
@@ -48,6 +49,7 @@ inline int usage(const char* argv0, int returnValue)
               << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
               << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
+              << "  -g12,--greens       Create a file with data only from both green channels on the Bayer grid\n"
               << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
               << "  -s R,--scale R      Scale pixel values by factor R\n"
               << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
@@ -343,6 +345,8 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         WRITE_BMP_DATA_TO_FILE("Writing green1 channel to file...",filePathPrefix+"Green1.bmp",col(0),col(pixelG1),col(0));
     if(needGreen2File)
         WRITE_BMP_DATA_TO_FILE("Writing green2 channel to file...",filePathPrefix+"Green2.bmp",col(0),col(pixelG2),col(0));
+    if(needGreen12File)
+        WRITE_BMP_DATA_TO_FILE("Writing green12 channels to file...",filePathPrefix+"Green12.bmp",col(0),col(pixelG1+pixelG2),col(0));
 
     if(needTIFFFile || needUnweightedTIFF)
         WRITE_TIFF_DATA_TO_FILE("Writing combined-channel data to TIFF file...", filePathPrefix+"merged.tiff", w,h);
@@ -380,6 +384,7 @@ int main(int argc, char** argv)
         else if(arg=="-r" || arg=="--red") needRedFile=true;
         else if(arg=="-g1" || arg=="--green1") needGreen1File=true;
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
+        else if(arg=="-g12" || arg=="--greens") needGreen12File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
         else if(arg=="-w" || arg=="--white-level")
         {
