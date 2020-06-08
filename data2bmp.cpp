@@ -27,6 +27,9 @@ bool needGreen1File=false;
 bool needGreen2File=false;
 bool needGreen12File=false;
 bool needBlueFile=false;
+bool needPackedRedFile=false;
+bool needPackedGreenFile=false;
+bool needPackedBlueFile=false;
 
 float pixelScale=1;
 std::string filePathPrefix="/tmp/outfile-";
@@ -51,6 +54,9 @@ inline int usage(const char* argv0, int returnValue)
               << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
               << "  -g12,--greens       Create a file with data only from both green channels on the Bayer grid\n"
               << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
+              << "  -pr,--packed-red    Create a file with red channel only data on the Bayer grid, packed into adjacent pixels\n"
+              << "  -pg,--packed-green  Create a file with data only from both green channels on the Bayer grid, packed into adjacent pixels\n"
+              << "  -pb,--packed-blue   Create a file with blue channel only data on the Bayer grid, packed into adjacent pixels\n"
               << "  -s R,--scale R      Scale pixel values by factor R\n"
               << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
               << "  -wb,--white-balance {as-shot|daylight|none}  Use the white balance mode specified. 'as-shot' means the white\n"
@@ -236,7 +242,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
     } while(0);
 
     enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
-    if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile)
+    if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile || needPackedRedFile || needPackedGreenFile || needPackedBlueFile)
     {
         std::cerr << "Writing merged-color sRGB image to file" << (needFakeSRGB && needTrueSRGB ? "s" : "") << "...";
 
@@ -265,6 +271,19 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
         ByteBuffer bytes_chroma(header.fileSize);
         if(needChromaOnlyFile)
             bytes_chroma.write(&header,sizeof header);
+        // Raw RGB data mapped to sRGB pixels in another output image, but with red channel filled only
+        ByteBuffer bytes_red(header.fileSize);
+        if(needPackedRedFile)
+            bytes_red.write(&header,sizeof header);
+        // Raw RGB data mapped to sRGB pixels in another output image, but with green channel (average of G1 & G2) filled only
+        ByteBuffer bytes_green(header.fileSize);
+        if(needPackedGreenFile)
+            bytes_green.write(&header,sizeof header);
+        // Raw RGB data mapped to sRGB pixels in another output image, but with blue channel filled only
+        ByteBuffer bytes_blue(header.fileSize);
+        if(needPackedBlueFile)
+            bytes_blue.write(&header,sizeof header);
+
         for(int y=h-1;y>=0;--y)
         {
             for(int x=0;x<w;++x)
@@ -282,6 +301,13 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                                        overexposed?uint8_t(255):col(red)};
                 if(needFakeSRGB)
                     bytes.write(vals,sizeof vals);
+
+                if(needPackedRedFile)
+                    bytes_red.write(std::array<uint8_t,3>{vals[0],0,0}.data(), 3);
+                if(needPackedGreenFile)
+                    bytes_green.write(std::array<uint8_t,3>{0,vals[1],0}.data(), 3);
+                if(needPackedBlueFile)
+                    bytes_blue.write(std::array<uint8_t,3>{0,0,vals[2]}.data(), 3);
 
                 const auto& cam2srgb=colorData.rgb_cam;
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
@@ -308,6 +334,12 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                 alignScanLine(bytes_sRGB);
             if(needChromaOnlyFile)
                 alignScanLine(bytes_chroma);
+            if(needPackedRedFile)
+                alignScanLine(bytes_red);
+            if(needPackedGreenFile)
+                alignScanLine(bytes_green);
+            if(needPackedBlueFile)
+                alignScanLine(bytes_blue);
         }
         if(needFakeSRGB)
         {
@@ -328,6 +360,27 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             const auto filename=filePathPrefix+"merged-chroma-only.bmp";
             std::ofstream file(filename,std::ios::binary);
             file.write(bytes_chroma.data(),bytes_chroma.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
+        if(needPackedRedFile)
+        {
+            const auto filename=filePathPrefix+"packed-red.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes_red.data(),bytes_red.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
+        if(needPackedGreenFile)
+        {
+            const auto filename=filePathPrefix+"packed-green-average.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes_green.data(),bytes_green.size());
+            std::cerr << " written to \"" << filename << "\"\n";
+        }
+        if(needPackedBlueFile)
+        {
+            const auto filename=filePathPrefix+"packed-blue.bmp";
+            std::ofstream file(filename,std::ios::binary);
+            file.write(bytes_blue.data(),bytes_blue.size());
             std::cerr << " written to \"" << filename << "\"\n";
         }
     }
@@ -386,6 +439,9 @@ int main(int argc, char** argv)
         else if(arg=="-g2" || arg=="--green2") needGreen2File=true;
         else if(arg=="-g12" || arg=="--greens") needGreen12File=true;
         else if(arg=="-b" || arg=="--blue") needBlueFile=true;
+        else if(arg=="-pr" || arg=="--packed-red") needPackedRedFile=true;
+        else if(arg=="-pg" || arg=="--packed-green") needPackedGreenFile=true;
+        else if(arg=="-pb" || arg=="--packed-blue") needPackedBlueFile=true;
         else if(arg=="-w" || arg=="--white-level")
         {
             if(++i==argc)
