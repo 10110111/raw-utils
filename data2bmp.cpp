@@ -11,6 +11,7 @@
 #define cimg_use_tiff
 #define cimg_display 0
 #include <CImg.h>
+#include "cmdline-show-help.hpp"
 
 using std::uint8_t;
 using std::size_t;
@@ -36,35 +37,33 @@ std::string filePathPrefix="/tmp/outfile-";
 
 inline int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: [options...] " << argv0 << " filename\n";
-    std::cerr << "Options:\n"
-              << "  -srgb,--srgb        Create an sRGB image by merging RGGB data and applying the cam2rgb conversion matrix\n"
-              << "  -chroma,--chroma    Create an sRGB image by merging RGGB data applying the cam2rgb\n"
-                 "                       conversion matrix and stripping brightness info\n"
-              << "  --fake-srgb         Similar to -srgb, but without applying the conversion matrix\n"
-              << "  --combined          Create a file containing RGGB data on the Bayer grid, coded by sRGB colors\n"
-              << "  --tiff              Create a floating-point TIFF RGB file containing merged RGGB data from the Bayer grid,\n"
-                 "                       with green being average of the two Bayer values. Color space is sRGB-linear, values are\n"
-                 "                       normalized to maximum possible value of the raw file (taken from libRaw).\n"
-              << "  --tiff-unw          Same as --tiff, but without applying cam_rgb matrix and without white balancing - only\n"
-                 "                       averaging the two Bayer green channels.\n"
-              << "  --f32               Save as floating-point single-component texture with header being uint16 width & height\n"
-              << "  -r,--red            Create a file with red channel only data on the Bayer grid\n"
-              << "  -g1,--green1        Create a file with data only from first green channel on the Bayer grid\n"
-              << "  -g2,--green2        Create a file with data only from second green channel on the Bayer grid\n"
-              << "  -g12,--greens       Create a file with data only from both green channels on the Bayer grid\n"
-              << "  -b,--blue           Create a file with blue channel only data on the Bayer grid\n"
-              << "  -pr,--packed-red    Create a file with red channel only data on the Bayer grid, packed into adjacent pixels\n"
-              << "  -pg,--packed-green  Create a file with data only from both green channels on the Bayer grid, packed into adjacent pixels\n"
-              << "  -pb,--packed-blue   Create a file with blue channel only data on the Bayer grid, packed into adjacent pixels\n"
-              << "  -s R,--scale R      Scale pixel values by factor R\n"
-              << "  -p,--prefix PATH    Use PATH as file path prefix instead of \"outfile-\"\n"
-              << "  -wb,--white-balance {as-shot|daylight|none}  Use the white balance mode specified. 'as-shot' means the white\n"
-                 "                       balance chosen by the camera (cam_mul in libraw), 'daylight' is the daylight WB (pre_mul\n"
-                 "                       in libraw), and 'none' means the coefficients will be all equal to one.\n"
-              << "  --cam2srgb M11,M12,M13,M21,M22,M23,M31,M32,M33\n"
-                 "                       Use the custom camera-to-sRGB matrix. White balance options will be ignored.\n"
-              ;
+    std::vector<CmdLineOption> options{
+        {{"-srgb","--srgb"},        "Create an sRGB image by merging RGGB data and applying the cam2rgb conversion matrix"},
+        {{"-chroma","--chroma"},    "Create an sRGB image by merging RGGB data applying the cam2rgb conversion matrix and stripping brightness info"},
+        {{"--fake-srgb"},           "Similar to -srgb, but without applying the conversion matrix"},
+        {{"--combined"},            "Create a file containing RGGB data on the Bayer grid, coded by sRGB colors"},
+        {{"--tiff"},                "Create a floating-point TIFF RGB file containing merged RGGB data from the Bayer grid, with green being average of the two Bayer values. Color space is sRGB-linear, values are normalized to maximum possible value of the raw file (taken from libRaw)."},
+        {{"--tiff-unw"},            "Same as --tiff, but without applying cam_rgb matrix and without white balancing - only averaging the two Bayer green channels."},
+        {{"--f32"},                 "Save as floating-point single-component texture with header being uint16 width & height"},
+        {{"-r","--red"},            "Create a file with red channel only data on the Bayer grid"},
+        {{"-g1","--green1"},        "Create a file with data only from first green channel on the Bayer grid"},
+        {{"-g2","--green2"},        "Create a file with data only from second green channel on the Bayer grid"},
+        {{"-g12","--greens"},       "Create a file with data only from both green channels on the Bayer grid"},
+        {{"-b","--blue"},           "Create a file with blue channel only data on the Bayer grid"},
+        {{"-pr","--packed-red"},    "Create a file with red channel only data on the Bayer grid, packed into adjacent pixels"},
+        {{"-pg","--packed-green"},  "Create a file with data only from both green channels on the Bayer grid, packed into adjacent pixels"},
+        {{"-pb","--packed-blue"},   "Create a file with blue channel only data on the Bayer grid, packed into adjacent pixels"},
+        {{"-s","--scale"},          "R",
+                                    "Scale pixel values by factor R"},
+        {{"-p","--prefix"},         "PATH",
+                                    "Use PATH as file path prefix instead of \"outfile-\""},
+        {{"-wb","--white-balance"}, "{as-shot|daylight|none}",
+                                    "Use the white balance mode specified. 'as-shot' means the white balance chosen by the camera (cam_mul in libraw), 'daylight' is the daylight WB (pre_mul in libraw), and 'none' means the coefficients will be all equal to one."},
+        {{"--cam2srgb"},            "M11,M12,M13,M21,M22,M23,M31,M32,M33",
+                                    "Use the custom camera-to-sRGB matrix. White balance options will be ignored."},
+    };
+
+    showHelp(returnValue ? std::cerr : std::cout, argv0, options, "filename");
     return returnValue;
 }
 
