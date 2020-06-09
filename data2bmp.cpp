@@ -304,7 +304,7 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             auto modifiedHeader=header;
             modifiedHeader.width = rotGreenSide;
             modifiedHeader.height = -rotGreenSide;
-            modifiedHeader.fileSize=rotGreenStride*rotGreenSide*3+sizeof modifiedHeader;
+            modifiedHeader.fileSize = rotGreenStride*rotGreenSide+sizeof modifiedHeader;
             bytes_rotGreen.resize(modifiedHeader.fileSize);
             bytes_rotGreen.write(&modifiedHeader,sizeof modifiedHeader);
         }
