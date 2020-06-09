@@ -328,11 +328,11 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
                     bytes.write(vals,sizeof vals);
 
                 if(needPackedRedFile)
-                    bytes_red.write(std::array<uint8_t,3>{vals[0],0,0}.data(), 3);
+                    bytes_red.write(std::array<uint8_t,3>{0,0,vals[2]}.data(), 3);
                 if(needPackedGreenFile)
                     bytes_green.write(std::array<uint8_t,3>{0,vals[1],0}.data(), 3);
                 if(needPackedBlueFile)
-                    bytes_blue.write(std::array<uint8_t,3>{0,0,vals[2]}.data(), 3);
+                    bytes_blue.write(std::array<uint8_t,3>{vals[0],0,0}.data(), 3);
                 if(needRotatedPackedGreensFile)
                 {
                     const auto g2offset=(h-1+x-y)*3+rotGreenStride*(x+y);
