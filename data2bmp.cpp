@@ -160,7 +160,7 @@ public:
 
 float clampRGB(float x){return std::max(0.f,std::min(1.f,x));}
 float toSRGB(float x){return std::pow(x,1/2.2f)*255;}
-void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData, unsigned whiteLevel)
+void writeImagePlanesToBMP(LibRaw& libRaw, ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData, unsigned whiteLevel)
 {
     const unsigned black=colorData.black, white=whiteLevel;
     BitmapHeader header={};
@@ -230,12 +230,19 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             {                                                                                                               \
                 const auto X=x*2, Y=y*2;                                                                                    \
                 bool overexposed=false;                                                                                     \
-                const ushort pixelTopLeft    =rgbCoefR *subBlack(data[X+0+(Y+0)*stride][BAYER_RED]   );                     \
-                const ushort pixelTopRight   =rgbCoefG1*subBlack(data[X+1+(Y+0)*stride][BAYER_GREEN1]);                     \
-                const ushort pixelBottomLeft =rgbCoefG2*subBlack(data[X+0+(Y+1)*stride][BAYER_GREEN2]);                     \
-                const ushort pixelBottomRight=rgbCoefB *subBlack(data[X+1+(Y+1)*stride][BAYER_BLUE]  );                     \
-                const auto green=(pixelTopRight+pixelBottomLeft)/2.;                                                        \
-                const auto red=pixelTopLeft, blue=pixelBottomRight;                                                         \
+                const auto col00=libRaw.COLOR(0,0), col01=libRaw.COLOR(0,1), col10=libRaw.COLOR(1,0), col11=libRaw.COLOR(1,1);\
+                const ushort pixelTopLeft    =rgbCoefR *subBlack(data[X+0+(Y+0)*stride][col00]);                            \
+                const ushort pixelTopRight   =rgbCoefG1*subBlack(data[X+1+(Y+0)*stride][col01]);                            \
+                const ushort pixelBottomLeft =rgbCoefG2*subBlack(data[X+0+(Y+1)*stride][col10]);                            \
+                const ushort pixelBottomRight=rgbCoefB *subBlack(data[X+1+(Y+1)*stride][col11]);                            \
+                ushort rgbg2[4];                                                                                            \
+                rgbg2[col00]=pixelTopLeft;                                                                                  \
+                rgbg2[col01]=pixelTopRight;                                                                                 \
+                rgbg2[col10]=pixelBottomLeft;                                                                               \
+                rgbg2[col11]=pixelBottomRight;                                                                              \
+                const auto red = rgbg2[BAYER_RED];                                                                          \
+                const auto green=(rgbg2[BAYER_GREEN1]+rgbg2[BAYER_GREEN2])/2.;                                              \
+                const auto blue = rgbg2[BAYER_BLUE];                                                                        \
                 const auto& cam2srgb = needUnweightedTIFF ? identity : colorData.rgb_cam;                                   \
                 const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;                              \
                 const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;                              \
@@ -315,12 +322,19 @@ void writeImagePlanesToBMP(ushort (*data)[4], const int w, const int h, const fl
             {
                 const auto X=x*2, Y=y*2;
                 bool overexposed=false;
-                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][BAYER_RED]   ,overexposed);
-                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][BAYER_GREEN1],overexposed);
-                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][BAYER_GREEN2],overexposed);
-                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][BAYER_BLUE]  ,overexposed);
-                const auto green=(pixelTopRight+pixelBottomLeft)/2.;
-                const auto red=pixelTopLeft, blue=pixelBottomRight;
+                const auto col00=libRaw.COLOR(0,0), col01=libRaw.COLOR(0,1), col10=libRaw.COLOR(1,0), col11=libRaw.COLOR(1,1);
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][col00],overexposed);
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][col01],overexposed);
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][col10],overexposed);
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][col11],overexposed);
+                ushort rgbg2[4];
+                rgbg2[col00]=pixelTopLeft;
+                rgbg2[col01]=pixelTopRight;
+                rgbg2[col10]=pixelBottomLeft;
+                rgbg2[col11]=pixelBottomRight;
+                const auto red = rgbg2[BAYER_RED];
+                const auto green=(rgbg2[BAYER_GREEN1]+rgbg2[BAYER_GREEN2])/2.;
+                const auto blue = rgbg2[BAYER_BLUE];
                 const uint8_t vals[3]={overexposed?uint8_t(255):col(blue),
                                        overexposed?uint8_t(255):col(green),
                                        overexposed?uint8_t(255):col(red)};
@@ -605,7 +619,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        writeImagePlanesToBMP(libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
+        writeImagePlanesToBMP(libRaw, libRaw.imgdata.image,sizes.iwidth,sizes.iheight,
                               whiteBalance==WhiteBalance::Daylight ? daylightWBCoefs :
                                whiteBalance==WhiteBalance::AsShot ? asShotWBCoefs :
                                 noWBCoefs,
