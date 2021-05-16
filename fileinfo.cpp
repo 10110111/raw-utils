@@ -63,10 +63,10 @@ int main(int argc, char** argv)
     std::cout << "Model: " << idata.model << "\n";
     std::cout << "Colors: " << idata.colors << "\n";
     std::cout << "Color components: " << idata.cdesc << "\n";
-    std::cout << "Raw size: " << sizes.raw_width << "x" << sizes.raw_height << "\n";
-    std::cout << "Visible size: " << sizes.width << "x" << sizes.height << "\n";
+    std::cout << "Raw size: " << sizes.raw_width << "×" << sizes.raw_height << "\n";
+    std::cout << "Visible size: " << sizes.width << "×" << sizes.height << "\n";
     std::cout << "Margins{left: " << sizes.left_margin << ", top: " << sizes.top_margin << "}\n";
-    std::cout << "iSize: " << sizes.iwidth << "x" << sizes.iheight << "\n";
+    std::cout << "iSize: " << sizes.iwidth << "×" << sizes.iheight << "\n";
     std::cout << "Pixel aspect: " << sizes.pixel_aspect << "\n";
     std::cout << "Black level: " << libRaw.imgdata.rawdata.color.black << "\n";
     std::cout << "White level: " << libRaw.imgdata.rawdata.color.maximum << "\n";
