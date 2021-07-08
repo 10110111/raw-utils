@@ -34,6 +34,8 @@ bool needPackedGreenFile=false;
 bool needPackedBlueFile=false;
 bool needRotatedPackedGreensFile=false;
 
+unsigned pixelScaleCalcMinX,pixelScaleCalcMinY;
+unsigned pixelScaleCalcMaxX,pixelScaleCalcMaxY;
 float pixelScale=1;
 std::string filePathPrefix="/tmp/outfile-";
 
@@ -59,6 +61,8 @@ inline int usage(const char* argv0, int returnValue)
                                     "Create a file with green channels on the Bayer grid, rotated by 45° and packed into adjacent pixels"},
         {{"-s","--scale"},          "R",
                                     "Scale pixel values by factor R"},
+        {{"-sm","--scale-to-max-srgb"},  "WxH+X+Y",
+                                    "Scale pixel values so that largest non-overexposed subpixel value in the range WxH+X+Y became 1.0 (or 255) in the output file"},
         {{"-p","--prefix"},         "PATH",
                                     "Use PATH as file path prefix instead of \"outfile-\""},
         {{"-wb","--white-balance"}, "{as-shot|daylight|none}",
@@ -162,6 +166,7 @@ float clampRGB(float x){return std::max(0.f,std::min(1.f,x));}
 float toSRGB(float x){return std::pow(x,1/2.2f)*255;}
 void writeImagePlanesToBMP(LibRaw& libRaw, ushort (*data)[4], const int w, const int h, const float (&rgbCoefs)[4], libraw_colordata_t const& colorData, unsigned whiteLevel)
 {
+    enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
     const unsigned black=colorData.black, white=whiteLevel;
     BitmapHeader header={};
     header.signature=0x4d42;
@@ -190,6 +195,49 @@ void writeImagePlanesToBMP(LibRaw& libRaw, ushort (*data)[4], const int w, const
     const auto rgbCoefG1=rgbCoefs[1];
     const auto rgbCoefB =rgbCoefs[2];
     const auto rgbCoefG2=rgbCoefs[3];
+
+    if(pixelScale<0)
+    {
+        float max=0;
+        const auto col00=libRaw.COLOR(0,0), col01=libRaw.COLOR(0,1), col10=libRaw.COLOR(1,0), col11=libRaw.COLOR(1,1);
+        const auto& cam2srgb = colorData.rgb_cam;
+        const int stride=w;
+        if(pixelScaleCalcMaxX>w/2)
+            pixelScaleCalcMaxX=w/2;
+        if(pixelScaleCalcMaxY>h/2)
+            pixelScaleCalcMaxY=h/2;
+        for(int y=pixelScaleCalcMinY;y<pixelScaleCalcMaxY;++y)
+        {
+            for(int x=pixelScaleCalcMinX;x<pixelScaleCalcMaxX;++x)
+            {
+                const auto X=x*2, Y=y*2;
+                bool overexposed=false;
+                const ushort pixelTopLeft    =rgbCoefR *clampAndSubB(data[X+0+(Y+0)*stride][col00],overexposed);
+                const ushort pixelTopRight   =rgbCoefG1*clampAndSubB(data[X+1+(Y+0)*stride][col01],overexposed);
+                const ushort pixelBottomLeft =rgbCoefG2*clampAndSubB(data[X+0+(Y+1)*stride][col10],overexposed);
+                const ushort pixelBottomRight=rgbCoefB *clampAndSubB(data[X+1+(Y+1)*stride][col11],overexposed);
+                ushort rgbg2[4];
+                rgbg2[col00]=pixelTopLeft;
+                rgbg2[col01]=pixelTopRight;
+                rgbg2[col10]=pixelBottomLeft;
+                rgbg2[col11]=pixelBottomRight;
+                const auto red = rgbg2[BAYER_RED];
+                const auto green=(rgbg2[BAYER_GREEN1]+rgbg2[BAYER_GREEN2])/2.;
+                const auto blue = rgbg2[BAYER_BLUE];
+                if(overexposed)
+                    continue;
+                const auto srgblR=cam2srgb[0][0]*red+cam2srgb[0][1]*green+cam2srgb[0][2]*blue;
+                const auto srgblG=cam2srgb[1][0]*red+cam2srgb[1][1]*green+cam2srgb[1][2]*blue;
+                const auto srgblB=cam2srgb[2][0]*red+cam2srgb[2][1]*green+cam2srgb[2][2]*blue;
+                if(srgblR>max) max=srgblR;
+                if(srgblG>max) max=srgblG;
+                if(srgblB>max) max=srgblB;
+            }
+        }
+        pixelScale = (white-black)/max;
+        std::cerr << "Computed pixel scale: " << pixelScale << "\n";
+    }
+
 #define WRITE_BMP_DATA_TO_FILE(ANNOTATION,FILENAME,BLUE,GREEN,RED)  \
     do {                                                            \
         std::cerr << ANNOTATION;                                    \
@@ -257,7 +305,6 @@ void writeImagePlanesToBMP(LibRaw& libRaw, ushort (*data)[4], const int w, const
             std::cerr << "written to \"" << (FILENAME) << "\"\n";                                                           \
     } while(0);
 
-    enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
     if(needFakeSRGB || needTrueSRGB || needChromaOnlyFile ||
        needPackedRedFile || needPackedGreenFile || needPackedBlueFile ||
        needRotatedPackedGreensFile)
@@ -559,6 +606,27 @@ int main(int argc, char** argv)
                 std::cerr << "Failed to parse pixel value multiplier\n";
                 return 1;
             }
+        }
+        else if(arg=="-sm" || arg=="--scale-to-max-srgb")
+        {
+            if(++i==argc)
+            {
+                std::cerr << "Option " << arg << " requires parameter\n";
+                return usage(argv[0],1);
+            }
+            const char*const arg(argv[i]);
+            unsigned x,y,w,h;
+            char c;
+            if(sscanf(arg, "%ux%u+%u+%u%c", &w,&h,&x,&y,&c) != 4)
+            {
+                std::cerr << "Failed to parse scale reference rectangle\n";
+                return usage(argv[0],1);
+            }
+            pixelScaleCalcMinX=x;
+            pixelScaleCalcMinY=y;
+            pixelScaleCalcMaxX=x+w;
+            pixelScaleCalcMaxY=y+h;
+            pixelScale=-1; // will need to calculate it from input image
         }
         else if(arg=="-p" || arg=="--prefix")
         {
