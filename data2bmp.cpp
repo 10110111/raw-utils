@@ -277,7 +277,6 @@ void writeImagePlanesToBMP(LibRaw& libRaw, ushort (*data)[4], const int w, const
             for(int x=0;x<W;++x)                                                                                            \
             {                                                                                                               \
                 const auto X=x*2, Y=y*2;                                                                                    \
-                bool overexposed=false;                                                                                     \
                 const auto col00=libRaw.COLOR(0,0), col01=libRaw.COLOR(0,1), col10=libRaw.COLOR(1,0), col11=libRaw.COLOR(1,1);\
                 const ushort pixelTopLeft    =rgbCoefR *subBlack(data[X+0+(Y+0)*stride][col00]);                            \
                 const ushort pixelTopRight   =rgbCoefG1*subBlack(data[X+1+(Y+0)*stride][col01]);                            \
@@ -656,8 +655,6 @@ int main(int argc, char** argv)
         std::cerr << "Failed to unpack: error " << error << "\n";
         return 2;
     }
-
-    const auto& idata=libRaw.imgdata.idata;
 
     std::cerr << "Convering raw data to image...\n";
     libRaw.raw2image();
