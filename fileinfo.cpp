@@ -42,6 +42,33 @@ void printArray(std::ostream& stream, T (&array)[N])
         stream << array[i] << "  ";
 }
 
+std::pair<ushort,ushort> calcMinMax(LibRaw& libRaw, const ushort (*data)[4], const int w, const int h)
+{
+    enum {BAYER_RED,BAYER_GREEN1,BAYER_BLUE,BAYER_GREEN2};
+    const auto col00=libRaw.COLOR(0,0), col01=libRaw.COLOR(0,1), col10=libRaw.COLOR(1,0), col11=libRaw.COLOR(1,1);
+    const int stride=w;
+    ushort minPix=0xffff, maxPix=0;
+    for(int Y=0; Y<h; Y+=2)
+    {
+        for(int X=0; X<w; X+=2)
+        {
+            const ushort pixelTopLeft    =data[X+0+(Y+0)*stride][col00];
+            const ushort pixelTopRight   =data[X+1+(Y+0)*stride][col01];
+            const ushort pixelBottomLeft =data[X+0+(Y+1)*stride][col10];
+            const ushort pixelBottomRight=data[X+1+(Y+1)*stride][col11];
+            if(pixelTopLeft     < minPix) minPix = pixelTopLeft;
+            if(pixelTopRight    < minPix) minPix = pixelTopRight;
+            if(pixelBottomLeft  < minPix) minPix = pixelBottomLeft;
+            if(pixelBottomRight < minPix) minPix = pixelBottomRight;
+            if(pixelTopLeft     > maxPix) maxPix = pixelTopLeft;
+            if(pixelTopRight    > maxPix) maxPix = pixelTopRight;
+            if(pixelBottomLeft  > maxPix) maxPix = pixelBottomLeft;
+            if(pixelBottomRight > maxPix) maxPix = pixelBottomRight;
+        }
+    }
+    return {minPix,maxPix};
+}
+
 int main(int argc, char** argv)
 {
     if(argc!=2)
@@ -59,6 +86,7 @@ int main(int argc, char** argv)
     }
 
     const auto& idata=libRaw.imgdata.idata;
+    libRaw.raw2image();
     std::cout << "Make: " << idata.make << "\n";
     std::cout << "Model: " << idata.model << "\n";
     std::cout << "Colors: " << idata.colors << "\n";
@@ -72,8 +100,9 @@ int main(int argc, char** argv)
     std::cout << "Margins{left: " << sizes.left_margin << ", top: " << sizes.top_margin << "}\n";
     std::cout << "iSize: " << sizes.iwidth << "×" << sizes.iheight << "\n";
     std::cout << "Pixel aspect: " << sizes.pixel_aspect << "\n";
-    std::cout << "Black level: " << libRaw.imgdata.rawdata.color.black << "\n";
-    std::cout << "White level: " << libRaw.imgdata.rawdata.color.maximum << "\n";
+    const auto minMax = calcMinMax(libRaw, libRaw.imgdata.image, sizes.iwidth, sizes.iheight);
+    std::cout << "Black level: " << libRaw.imgdata.rawdata.color.black << ", actual min: " << minMax.first << "\n";
+    std::cout << "White level: " << libRaw.imgdata.rawdata.color.maximum << ", actual max: " << minMax.second << "\n";
 
     std::cout << "cmatrix:\n"; printMatrix(std::cout,libRaw.imgdata.rawdata.color.cmatrix);
     std::cout << "rgb_cam:\n"; printMatrix(std::cout,libRaw.imgdata.rawdata.color.rgb_cam);
