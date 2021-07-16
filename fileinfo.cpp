@@ -110,6 +110,6 @@ int main(int argc, char** argv)
     std::cout << "white:\n";   printMatrix(std::cout,libRaw.imgdata.rawdata.color.white);
     std::cout << "cam_mul: "; printArray(std::cout,libRaw.imgdata.rawdata.color.cam_mul); std::cout << "\n";
     std::cout << "pre_mul: "; printArray(std::cout,libRaw.imgdata.rawdata.color.pre_mul); std::cout << "\n";
-    std::cout << "cblack: ";  printArray(std::cout,libRaw.imgdata.rawdata.color.cblack); std::cout << "\n";
+//    std::cout << "cblack: ";  printArray(std::cout,libRaw.imgdata.rawdata.color.cblack); std::cout << "\n";
 }
 
