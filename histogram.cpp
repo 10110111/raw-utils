@@ -12,7 +12,7 @@ using std::size_t;
 
 inline int usage(const char* argv0, int returnValue)
 {
-    std::cerr << "Usage: " << argv0 << " [--mma|--csv] [--white-balance] filename\n";
+    std::cerr << "Usage: " << argv0 << " [--mma|--csv] [--white-balance] [--no-clip] filename\n";
     return returnValue;
 }
 
@@ -64,14 +64,14 @@ void formatHistogram(std::vector<int> const& histogramRed,
 
 void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, const int h,
                          const unsigned black, const unsigned white, const float (&rgbCoefs)[4],
-                         PrintFormat format)
+                         PrintFormat format, const bool clip)
 {
     const auto rgbCoefR =rgbCoefs[0];
     const auto rgbCoefG1=rgbCoefs[1];
     const auto rgbCoefB =rgbCoefs[2];
     const auto rgbCoefG2=rgbCoefs[3];
 
-    const auto histSize=white-black+1;
+    const auto histSize = clip ? white-black+1 : white;
     std::vector<int> histogramRed(histSize);
     std::vector<int> histogramGreen1(histSize);
     std::vector<int> histogramGreen2(histSize);
@@ -87,25 +87,53 @@ void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, co
             if(pixelRaw<black)
             {
                 ++tooBlackPixelCount;
-                pixelRaw=black;
+                if(clip)
+                    pixelRaw=black;
             }
             else if(pixelRaw>white)
             {
                 ++tooWhitePixelCount;
-                pixelRaw=white;
+                if(clip)
+                    pixelRaw=white;
             }
 
-            const auto pixel=pixelRaw-black;
+            const auto pixel = clip ? pixelRaw-black : pixelRaw;
+            std::size_t index;
             switch(colIndex)
             {
-            case 0: ++histogramRed[std::lround(pixel*rgbCoefR)]; break;
-            case 1: ++histogramGreen1[std::lround(pixel*rgbCoefG1)]; break;
-            case 2: ++histogramBlue[std::lround(pixel*rgbCoefB)]; break;
-            case 3: ++histogramGreen2[std::lround(pixel*rgbCoefG2)]; break;
+            case 0:
+                index = std::lround(pixel*rgbCoefR);
+                if(index>=histogramRed.size())
+                    histogramRed.resize(index+1);
+                ++histogramRed[index];
+                break;
+            case 1:
+                index = std::lround(pixel*rgbCoefG1);
+                if(index>=histogramGreen1.size())
+                    histogramGreen1.resize(index+1);
+                ++histogramGreen1[index];
+                break;
+            case 2:
+                index = std::lround(pixel*rgbCoefB);
+                if(index>=histogramBlue.size())
+                    histogramBlue.resize(index+1);
+                ++histogramBlue[index];
+                break;
+            case 3:
+                index = std::lround(pixel*rgbCoefG2);
+                if(index>=histogramGreen2.size())
+                    histogramGreen2.resize(index+1);
+                ++histogramGreen2[index];
+                break;
             default: assert(!"Must not get here!");
             }
         }
     }
+    const auto maxLen = std::max({histogramRed.size(), histogramGreen1.size(), histogramGreen2.size(), histogramBlue.size()});
+    histogramRed.resize(maxLen);
+    histogramGreen1.resize(maxLen);
+    histogramGreen2.resize(maxLen);
+    histogramBlue.resize(maxLen);
     if(tooBlackPixelCount)
         std::cerr << "Warning: " << tooBlackPixelCount << " pixels have values less than black level\n";
     if(tooWhitePixelCount)
@@ -115,11 +143,12 @@ void printImageHistogram(LibRaw& libRaw, const ushort (*img)[4], const int w, co
 
 int main(int argc, char** argv)
 {
-    if(argc!=2 && argc!=3)
+    if(argc<2 || argc>4)
         return usage(argv[0],1);
     std::string filename=argv[1];
     PrintFormat format=PrintFormat::CSV;
     bool enableWhiteBalance=false;
+    bool clipping=true;
     for(int i=1;i<argc;++i)
     {
         const auto arg=std::string(argv[i]);
@@ -134,6 +163,10 @@ int main(int argc, char** argv)
         else if(arg=="--white-balance")
         {
             enableWhiteBalance=true;
+        }
+        else if(arg=="--no-clip")
+        {
+            clipping=false;
         }
         else if(filename.empty() && !arg.empty() && arg[0]!='-')
         {
@@ -174,5 +207,5 @@ int main(int argc, char** argv)
     const float rgbCoefs[4]={cam_mul[0]/camMulMax,cam_mul[1]/camMulMax,cam_mul[2]/camMulMax,cam_mul[3]/camMulMax};
     const float ones[4]={1,1,1,1};
     printImageHistogram(libRaw, libRaw.imgdata.image, sizes.iwidth,sizes.iheight, libRaw.imgdata.color.black,
-                        libRaw.imgdata.color.maximum, enableWhiteBalance ? rgbCoefs : ones,format);
+                        libRaw.imgdata.color.maximum, enableWhiteBalance ? rgbCoefs : ones,format, clipping);
 }
