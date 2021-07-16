@@ -56,6 +56,7 @@ void formatHistogram(std::vector<int> const& histogramRed,
         break;
     }
     case PrintFormat::CSV:
+        std::cout << "value,red,green-1,green-2,blue\n";
         for(unsigned i=0;i<histogramRed.size();++i)
             std::cout << i << ',' << histogramRed[i] << ',' << histogramGreen1[i] << ',' << histogramGreen2[i] << ',' << histogramBlue[i] << '\n';
         break;
