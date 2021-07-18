@@ -117,6 +117,7 @@ int main(int argc, char** argv)
     std::cout << "Color component │" << idata.cdesc[libRaw.COLOR(0,0)] << " " << idata.cdesc[libRaw.COLOR(0,1)] << "│\n"
                  "          order:│" << idata.cdesc[libRaw.COLOR(1,0)] << " " << idata.cdesc[libRaw.COLOR(1,1)] << "│\n"
                  "                ╰───╯\n";
+    std::cout << "Floating-point data: " << (libRaw.is_floating_point() ? "yes" : "no") << "\n";
     std::cout << "Raw size: " << sizes.raw_width << "×" << sizes.raw_height << "\n";
     std::cout << "Visible size: " << sizes.width << "×" << sizes.height << "\n";
     std::cout << "Margins{left: " << sizes.left_margin << ", top: " << sizes.top_margin << "}\n";
