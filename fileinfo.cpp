@@ -1,4 +1,5 @@
 #include <libraw/libraw.h>
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <cstddef>
@@ -39,7 +40,28 @@ template<typename T, size_t N>
 void printArray(std::ostream& stream, T (&array)[N])
 {
     for(size_t i=0;i<N;++i)
-        stream << array[i] << "  ";
+    {
+        constexpr unsigned minNumZerosToAbbreviate = 10;
+        if(array[i]==0 && N-i>minNumZerosToAbbreviate)
+        {
+            const auto begin = std::begin(array) + i;
+            const auto end = std::end(array);
+            const auto nonzero = std::find_if(begin, end, [](T const& v){return v!=0;});
+            if(nonzero-begin>minNumZerosToAbbreviate)
+            {
+                stream << "<0 repeated " << nonzero-begin << " times> ";
+                i += nonzero-begin-1;
+            }
+            else
+            {
+                stream << array[i] << "  ";
+            }
+        }
+        else
+        {
+            stream << array[i] << "  ";
+        }
+    }
 }
 
 std::pair<ushort,ushort> calcMinMax(LibRaw& libRaw, const ushort (*data)[4], const int w, const int h)
@@ -110,6 +132,6 @@ int main(int argc, char** argv)
     std::cout << "white:\n";   printMatrix(std::cout,libRaw.imgdata.rawdata.color.white);
     std::cout << "cam_mul: "; printArray(std::cout,libRaw.imgdata.rawdata.color.cam_mul); std::cout << "\n";
     std::cout << "pre_mul: "; printArray(std::cout,libRaw.imgdata.rawdata.color.pre_mul); std::cout << "\n";
-//    std::cout << "cblack: ";  printArray(std::cout,libRaw.imgdata.rawdata.color.cblack); std::cout << "\n";
+    std::cout << "cblack: ";  printArray(std::cout,libRaw.imgdata.rawdata.color.cblack); std::cout << "\n";
 }
 
