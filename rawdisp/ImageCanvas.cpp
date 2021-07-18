@@ -28,13 +28,13 @@ ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* p
 
 void ImageCanvas::loadFile(QString const& filename)
 {
+    libRaw.imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
     libRaw.open_file(filename.toStdString().c_str());
     if(const auto error=libRaw.unpack())
     {
         QMessageBox::critical(this, tr("Error loading file"), tr("Failed to unpack file: %1").arg(libraw_strerror(error)));
         return;
     }
-    libRaw.raw2image();
 }
 
 void ImageCanvas::setupBuffers()
@@ -77,6 +77,7 @@ void main()
 #extension GL_ARB_shading_language_420pack : require
 uniform sampler2D image;
 uniform float blackLevel, whiteLevel, exposureCompensationCoef;
+uniform float marginLeft, marginRight, marginTop, marginBottom;
 uniform vec3 whiteBalanceCoefs;
 uniform mat3 cam2srgb;
 out vec4 color;
@@ -86,15 +87,10 @@ vec3 sRGBTransferFunction(const vec3 c)
     return step(0.0031308,c)*(1.055*pow(c, vec3(1/2.4))-0.055)+step(-0.0031308,-c)*12.92*c;
 }
 
-float sum(vec4 c)
-{
-    return c.x+c.y+c.z+c.w;
-}
-
 float samplePhotoSite(const vec2 pos, const vec2 offset)
 {
     const vec2 texCoord = (pos+0.5+offset)/textureSize(image,0).xy;
-    return sum(texture(image, texCoord));
+    return texture(image, texCoord).r;
 }
 
 // FIXME: hard-coded RGGB pattern
@@ -107,7 +103,7 @@ void main()
 {
     const int W = textureSize(image,0).x;
     const int H = textureSize(image,0).y;
-    const vec2 pos = vec2(gl_FragCoord.x, H-gl_FragCoord.y)-0.5;
+    const vec2 pos = vec2(gl_FragCoord.x+marginLeft, H-gl_FragCoord.y-marginBottom)-0.5;
     const float vtl = samplePhotoSite(pos, vec2(-1,-1));
     const float vtc = samplePhotoSite(pos, vec2( 0,-1));
     const float vtr = samplePhotoSite(pos, vec2(+1,-1));
@@ -122,17 +118,17 @@ void main()
     if(photositeColorFilter == BAYER_RED)
     {
         red = vcc;
-        if(pos.x==0 && pos.y==0)
+        if(pos.x==marginLeft && pos.y==marginTop)
         {
             green = (vcr+vbc)/2;
             blue = vbr;
         }
-        else if(pos.y==0)
+        else if(pos.y==marginTop)
         {
             green = (vcr+vbc+vcl)/3;
             blue = (vbl+vbr)/2;
         }
-        else if(pos.x==0)
+        else if(pos.x==marginLeft)
         {
             green = (vtc+vcr+vbc)/3;
             blue = (vtr+vbr)/2;
@@ -146,17 +142,17 @@ void main()
     else if(photositeColorFilter == BAYER_GREEN1)
     {
         green = vcc;
-        if(pos.y==0 && pos.x==W-1)
+        if(pos.y==marginTop && pos.x==W-1-marginRight)
         {
             red = vcl;
             blue = vbc;
         }
-        else if(pos.y==0)
+        else if(pos.y==marginTop)
         {
             red = (vcl+vcr)/2;
             blue = vbc;
         }
-        else if(pos.x==W-1)
+        else if(pos.x==W-1-marginRight)
         {
             red = vcl;
             blue = (vtc+vbc)/2;
@@ -170,17 +166,17 @@ void main()
     else if(photositeColorFilter == BAYER_GREEN2)
     {
         green = vcc;
-        if(pos.x==0 && pos.y==H-1)
+        if(pos.x==marginLeft && pos.y==H-1-marginBottom)
         {
             red = vtc;
             blue = vcr;
         }
-        else if(pos.x==0)
+        else if(pos.x==marginLeft)
         {
             red = (vtc+vbc)/2;
             blue = vcr;
         }
-        else if(pos.y==H-1)
+        else if(pos.y==H-1-marginBottom)
         {
             red = vtc;
             blue = (vcl+vcr)/2;
@@ -194,17 +190,17 @@ void main()
     else if(photositeColorFilter == BAYER_BLUE)
     {
         blue = vcc;
-        if(pos.y==H-1 && pos.x==W-1)
+        if(pos.y==H-1-marginBottom && pos.x==W-1-marginRight)
         {
             red = vtl;
             green = (vtc+vcl)/2;
         }
-        else if(pos.y==H-1)
+        else if(pos.y==H-1-marginBottom)
         {
             red = (vtl+vtr)/2;
             green = (vtc+vcr+vcl)/3;
         }
-        else if(pos.x==W-1)
+        else if(pos.x==W-1-marginRight)
         {
             red = (vtl+vbl)/2;
             green = (vtc+vbc+vcl)/3;
@@ -246,15 +242,26 @@ void ImageCanvas::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    if(libRaw.imgdata.image)
+    const bool haveFP = libRaw.have_fpdata();
+    if(haveFP && libRaw.imgdata.rawdata.float_image)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, libRaw.imgdata.sizes.iwidth, libRaw.imgdata.sizes.iheight,
-                     0, GL_RGBA, GL_UNSIGNED_SHORT, libRaw.imgdata.image);
+        qDebug() << "Using float data";
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, libRaw.imgdata.rawdata.sizes.raw_width, libRaw.imgdata.rawdata.sizes.raw_height,
+                     0, GL_RED, GL_FLOAT, libRaw.imgdata.rawdata.float_image);
+    }
+    else if(!haveFP && libRaw.imgdata.rawdata.raw_image)
+    {
+        qDebug() << "Using uint16 data";
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, libRaw.imgdata.sizes.raw_width, libRaw.imgdata.sizes.raw_height,
+                     0, GL_RED, GL_UNSIGNED_SHORT, libRaw.imgdata.rawdata.raw_image);
     }
     else
     {
-        constexpr float texel[4]={1,0.5,0};
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGB, GL_FLOAT, texel);
+        qDebug() << "No image available, showing constant color";
+        constexpr float texel=0.5;
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 1, 1, 0, GL_RED, GL_FLOAT, &texel);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
 
     setupShaders();
@@ -291,8 +298,9 @@ void ImageCanvas::paintGL()
         else
             qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...\n";
     }
-    program_.setUniformValue("blackLevel", float(blackLevel/65535.));
-    program_.setUniformValue("whiteLevel", float(libRaw.imgdata.rawdata.color.maximum/65535.));
+    const float divisor = libRaw.is_floating_point() ? 1 : 65535;
+    program_.setUniformValue("blackLevel", float(blackLevel/divisor));
+    program_.setUniformValue("whiteLevel", float(libRaw.imgdata.rawdata.color.maximum/divisor));
     {
         const auto& pre_mul=libRaw.imgdata.color.pre_mul;
         const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
@@ -306,6 +314,11 @@ void ImageCanvas::paintGL()
                                    camrgb[2][0], camrgb[2][1], camrgb[2][2]};
         program_.setUniformValue("cam2srgb", QMatrix3x3(cam2srgb));
     }
+    const auto& sizes=libRaw.imgdata.sizes;
+    program_.setUniformValue("marginLeft", float(sizes.left_margin));
+    program_.setUniformValue("marginTop", float(sizes.top_margin));
+    program_.setUniformValue("marginBottom", float(sizes.raw_height - sizes.height - sizes.top_margin));
+    program_.setUniformValue("marginRight", float(sizes.raw_width - sizes.width - sizes.left_margin));
 
     program_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
 
