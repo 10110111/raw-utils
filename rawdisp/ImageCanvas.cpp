@@ -232,7 +232,7 @@ uniform vec2 imageSize;
 out vec2 texCoord;
 void main()
 {
-    texCoord = (vertex.xy+1)/2 * viewportSize/imageSize / scale + vec2(-shift.x,shift.y)/viewportSize;
+    texCoord = vertex.xy*(viewportSize/imageSize/scale)/2+0.5 + vec2(-shift.x,shift.y)/viewportSize;
     gl_Position=vec4(vertex,1);
 }
 )";
