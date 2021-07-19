@@ -20,10 +20,13 @@ private:
     void loadFile(QString const& filename);
     void setupBuffers();
     void setupShaders();
+    void demosaicImage();
 
 private:
-    GLuint imageTex_=0;
+    GLuint rawImageTex_=0, demosaicedImageTex_=0;
     GLuint vao_=0;
     GLuint vbo_=0;
-    QOpenGLShaderProgram program_;
+    GLuint demosaicFBO_=0;
+    QOpenGLShaderProgram demosaicProgram_;
+    QOpenGLShaderProgram displayProgram_;
 };

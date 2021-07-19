@@ -62,7 +62,8 @@ void ImageCanvas::setupBuffers()
 
 void ImageCanvas::setupShaders()
 {
-    const char*const vertSrc = 1+R"(
+    {
+        const char*const vertSrc = 1+R"(
 #version 330
 in vec3 vertex;
 void main()
@@ -70,22 +71,18 @@ void main()
     gl_Position=vec4(vertex,1);
 }
 )";
-    if(!program_.addShaderFromSourceCode(QOpenGLShader::Vertex, vertSrc))
-       QMessageBox::critical(this, tr("Shader compile failure"), tr("Failed to compile %1:\n%2").arg("vertex shader").arg(program_.log()));
-    const char*const fragSrc = 1+R"(
+        if(!demosaicProgram_.addShaderFromSourceCode(QOpenGLShader::Vertex, vertSrc))
+           QMessageBox::critical(this, tr("Shader compile failure"),
+                                 tr("Failed to compile %1:\n%2").arg("demosaic vertex shader").arg(demosaicProgram_.log()));
+        const char*const fragSrc = 1+R"(
 #version 330
 #extension GL_ARB_shading_language_420pack : require
 uniform sampler2D image;
-uniform float blackLevel, whiteLevel, exposureCompensationCoef;
+uniform float blackLevel, whiteLevel;
 uniform float marginLeft, marginRight, marginTop, marginBottom;
 uniform vec3 whiteBalanceCoefs;
 uniform mat3 cam2srgb;
-out vec4 color;
-
-vec3 sRGBTransferFunction(const vec3 c)
-{
-    return step(0.0031308,c)*(1.055*pow(c, vec3(1/2.4))-0.055)+step(-0.0031308,-c)*12.92*c;
-}
+out vec3 linearSRGB;
 
 float samplePhotoSite(const vec2 pos, const vec2 offset)
 {
@@ -213,14 +210,62 @@ void main()
     }
     const vec3 rawRGB = vec3(red,green,blue);
     const vec3 balancedRGB = (rawRGB-blackLevel)/(whiteLevel-blackLevel)*whiteBalanceCoefs;
-    const vec3 linearSRGB = cam2srgb*balancedRGB;
+    linearSRGB = cam2srgb*balancedRGB;
+}
+)";
+        if(!demosaicProgram_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
+           QMessageBox::critical(this, tr("Error compiling shader"),
+                                 tr("Failed to compile %1:\n%2").arg("demosaic fragment shader").arg(demosaicProgram_.log()));
+        if(!demosaicProgram_.link())
+            throw QMessageBox::critical(this, tr("Error linking shader program"),
+                                        tr("Failed to link %1:\n%2").arg("demosaic shader program").arg(demosaicProgram_.log()));
+    }
+    {
+        const char*const vertSrc = 1+R"(
+#version 330
+in vec3 vertex;
+uniform float scale;
+uniform vec2 shift;
+uniform vec2 viewportSize;
+uniform vec2 imageSize;
+out vec2 texCoord;
+void main()
+{
+    texCoord = (vertex.xy+1)/2 * viewportSize/imageSize / scale + vec2(-shift.x,shift.y)/viewportSize;
+    gl_Position=vec4(vertex,1);
+}
+)";
+        if(!displayProgram_.addShaderFromSourceCode(QOpenGLShader::Vertex, vertSrc))
+           QMessageBox::critical(this, tr("Shader compile failure"),
+                                 tr("Failed to compile %1:\n%2").arg("display vertex shader").arg(displayProgram_.log()));
+        const char*const fragSrc = 1+R"(
+#version 330
+#extension GL_ARB_shading_language_420pack : require
+
+uniform sampler2D sRGBLinearImage;
+uniform float exposureCompensationCoef;
+in vec2 texCoord;
+out vec4 color;
+
+vec3 sRGBTransferFunction(const vec3 c)
+{
+    return step(0.0031308,c)*(1.055*pow(c, vec3(1/2.4))-0.055)+step(-0.0031308,-c)*12.92*c;
+}
+
+void main()
+{
+    const vec3 linearSRGB = texture(sRGBLinearImage, texCoord).rgb;
     color = vec4(sRGBTransferFunction(linearSRGB*exposureCompensationCoef), 1);
 }
 )";
-    if(!program_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
-       QMessageBox::critical(this, tr("Error compiling shader"), tr("Failed to compile %1:\n%2").arg("fragment shader").arg(program_.log()));
-    if(!program_.link())
-        throw QMessageBox::critical(this, tr("Error linking shader program"), tr("Failed to link %1:\n%2").arg("shader program").arg(program_.log()));
+        if(!displayProgram_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
+           QMessageBox::critical(this, tr("Error compiling shader"),
+                                 tr("Failed to compile %1:\n%2").arg("display fragment shader").arg(displayProgram_.log()));
+        if(!displayProgram_.link())
+            throw QMessageBox::critical(this, tr("Error linking shader program"),
+                                        tr("Failed to link %1:\n%2").arg("display shader program").arg(displayProgram_.log()));
+
+    }
 }
 
 void ImageCanvas::initializeGL()
@@ -235,24 +280,25 @@ void ImageCanvas::initializeGL()
 
     setupBuffers();
 
-    glGenTextures(1, &imageTex_);
+    glGenTextures(1, &rawImageTex_);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, imageTex_);
+    glBindTexture(GL_TEXTURE_2D, rawImageTex_);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    const auto& sizes = libRaw.imgdata.rawdata.sizes;
     const bool haveFP = libRaw.have_fpdata();
     if(haveFP && libRaw.imgdata.rawdata.float_image)
     {
         qDebug() << "Using float data";
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, libRaw.imgdata.rawdata.sizes.raw_width, libRaw.imgdata.rawdata.sizes.raw_height,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
                      0, GL_RED, GL_FLOAT, libRaw.imgdata.rawdata.float_image);
     }
     else if(!haveFP && libRaw.imgdata.rawdata.raw_image)
     {
         qDebug() << "Using uint16 data";
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, libRaw.imgdata.sizes.raw_width, libRaw.imgdata.sizes.raw_height,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
                      0, GL_RED, GL_UNSIGNED_SHORT, libRaw.imgdata.rawdata.raw_image);
     }
     else
@@ -264,24 +310,39 @@ void ImageCanvas::initializeGL()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     }
 
+    glGenTextures(1, &demosaicedImageTex_);
+    glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
+    glGenFramebuffers(1, &demosaicFBO_);
+    glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, demosaicedImageTex_, 0);
+
     setupShaders();
+
+    demosaicImage();
 }
 
 ImageCanvas::~ImageCanvas()
 {
     makeCurrent();
-    glDeleteTextures(1, &imageTex_);
+    glDeleteTextures(1, &rawImageTex_);
 }
 
-void ImageCanvas::paintGL()
+void ImageCanvas::demosaicImage()
 {
-    if(!isVisible()) return;
+    glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
+    const auto& sizes=libRaw.imgdata.sizes;
+    glViewport(0, 0, sizes.width, sizes.height);
 
     glBindVertexArray(vao_);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, imageTex_);
-    program_.bind();
-    program_.setUniformValue("image", 0);
+    glBindTexture(GL_TEXTURE_2D, rawImageTex_);
+    demosaicProgram_.bind();
+    demosaicProgram_.setUniformValue("image", 0);
     float blackLevel=0;
     if(libRaw.imgdata.rawdata.color.black)
     {
@@ -299,28 +360,51 @@ void ImageCanvas::paintGL()
             qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...\n";
     }
     const float divisor = libRaw.is_floating_point() ? 1 : 65535;
-    program_.setUniformValue("blackLevel", float(blackLevel/divisor));
-    program_.setUniformValue("whiteLevel", float(libRaw.imgdata.rawdata.color.maximum/divisor));
+    demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/divisor));
+    demosaicProgram_.setUniformValue("whiteLevel", float(libRaw.imgdata.rawdata.color.maximum/divisor));
     {
         const auto& pre_mul=libRaw.imgdata.color.pre_mul;
         const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
         const auto daylightWBCoefs = QVector3D(pre_mul[0],pre_mul[1],pre_mul[2])/preMulMax;
-        program_.setUniformValue("whiteBalanceCoefs", daylightWBCoefs);
+        demosaicProgram_.setUniformValue("whiteBalanceCoefs", daylightWBCoefs);
     }
     {
         const auto& camrgb = libRaw.imgdata.rawdata.color.rgb_cam;
         const float cam2srgb[9] = {camrgb[0][0], camrgb[0][1], camrgb[0][2],
                                    camrgb[1][0], camrgb[1][1], camrgb[1][2],
                                    camrgb[2][0], camrgb[2][1], camrgb[2][2]};
-        program_.setUniformValue("cam2srgb", QMatrix3x3(cam2srgb));
+        demosaicProgram_.setUniformValue("cam2srgb", QMatrix3x3(cam2srgb));
     }
-    const auto& sizes=libRaw.imgdata.sizes;
-    program_.setUniformValue("marginLeft", float(sizes.left_margin));
-    program_.setUniformValue("marginTop", float(sizes.top_margin));
-    program_.setUniformValue("marginBottom", float(sizes.raw_height - sizes.height - sizes.top_margin));
-    program_.setUniformValue("marginRight", float(sizes.raw_width - sizes.width - sizes.left_margin));
+    demosaicProgram_.setUniformValue("marginLeft", float(sizes.left_margin));
+    demosaicProgram_.setUniformValue("marginTop", float(sizes.top_margin));
+    demosaicProgram_.setUniformValue("marginBottom", float(sizes.raw_height - sizes.height - sizes.top_margin));
+    demosaicProgram_.setUniformValue("marginRight", float(sizes.raw_width - sizes.width - sizes.left_margin));
 
-    program_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
+    glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+void ImageCanvas::paintGL()
+{
+    if(!isVisible()) return;
+
+    glViewport(0, 0, width(), height());
+    glBindVertexArray(vao_);
+
+    displayProgram_.bind();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
+    displayProgram_.setUniformValue("sRGBLinearImage", 0);
+    const float imageWidth = libRaw.imgdata.sizes.width;
+    const float imageHeight = libRaw.imgdata.sizes.height;
+    displayProgram_.setUniformValue("scale", std::min(width()/imageWidth, height()/imageHeight)); // TODO: vary
+    displayProgram_.setUniformValue("shift", QVector2D(0,0)); // TODO: vary
+    displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
+    displayProgram_.setUniformValue("imageSize", QVector2D(imageWidth, libRaw.imgdata.sizes.height));
+    displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
