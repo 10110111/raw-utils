@@ -14,6 +14,9 @@ public:
     ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* parent=nullptr);
     ~ImageCanvas();
 protected:
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void initializeGL() override;
     void paintGL() override;
 private:
@@ -29,4 +32,7 @@ private:
     GLuint demosaicFBO_=0;
     QOpenGLShaderProgram demosaicProgram_;
     QOpenGLShaderProgram displayProgram_;
+    QPoint dragStartPos_;
+    QPoint imageShift_;
+    bool dragging_=false;
 };

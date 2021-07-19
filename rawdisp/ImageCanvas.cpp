@@ -1,6 +1,7 @@
 #include "ImageCanvas.hpp"
 #include <cmath>
 #include <QDebug>
+#include <QMouseEvent>
 #include <QMessageBox>
 #include "ToolsWidget.hpp"
 
@@ -387,6 +388,27 @@ void ImageCanvas::demosaicImage()
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
+void ImageCanvas::mouseMoveEvent(QMouseEvent*const event)
+{
+    if(dragging_)
+    {
+        imageShift_ += event->pos() - dragStartPos_;
+        dragStartPos_ = event->pos();
+        update();
+    }
+}
+
+void ImageCanvas::mousePressEvent(QMouseEvent*const event)
+{
+    dragStartPos_ = event->pos();
+    dragging_ = true;
+}
+
+void ImageCanvas::mouseReleaseEvent(QMouseEvent*)
+{
+    dragging_ = false;
+}
+
 void ImageCanvas::paintGL()
 {
     if(!isVisible()) return;
@@ -401,7 +423,7 @@ void ImageCanvas::paintGL()
     const float imageWidth = libRaw.imgdata.sizes.width;
     const float imageHeight = libRaw.imgdata.sizes.height;
     displayProgram_.setUniformValue("scale", std::min(width()/imageWidth, height()/imageHeight)); // TODO: vary
-    displayProgram_.setUniformValue("shift", QVector2D(0,0)); // TODO: vary
+    displayProgram_.setUniformValue("shift", QVector2D(imageShift_.x(),imageShift_.y()));
     displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
     displayProgram_.setUniformValue("imageSize", QVector2D(imageWidth, libRaw.imgdata.sizes.height));
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
