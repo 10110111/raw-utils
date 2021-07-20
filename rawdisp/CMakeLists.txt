@@ -9,7 +9,7 @@ endif()
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
-find_package(Qt5 5.9 REQUIRED Core OpenGL)
+find_package(Qt5 5.9 REQUIRED Core OpenGL Concurrent)
 
 add_executable(rawdisp
                 rawdisp.cpp
@@ -17,4 +17,4 @@ add_executable(rawdisp
                 ToolsWidget.cpp
                 Manipulator.cpp
               )
-target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL raw GL)
+target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent raw GL)

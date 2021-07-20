@@ -2,8 +2,10 @@
 #include <cmath>
 #include <chrono>
 #include <QDebug>
+#include <QPainter>
 #include <QMouseEvent>
 #include <QMessageBox>
+#include <QtConcurrent>
 #include "ToolsWidget.hpp"
 
 static long double currentTime()
@@ -22,6 +24,21 @@ static QSurfaceFormat makeFormat()
     return format;
 }
 
+int ImageCanvas::loadFile(QString const& filename)
+{
+    const auto t0 = currentTime();
+
+    libRaw.imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
+    libRaw.open_file(filename.toStdString().c_str());
+    if(const auto error=libRaw.unpack())
+        return error;
+
+    const auto t1 = currentTime();
+    qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
+
+    return LIBRAW_SUCCESS;
+}
+
 ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* parent)
     : QOpenGLWidget(parent)
     , tools_(tools)
@@ -30,27 +47,25 @@ ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* p
     setFocusPolicy(Qt::StrongFocus);
 
     if(!filename.isEmpty())
-        loadFile(filename);
+    {
+        fileLoadStatus_ = QtConcurrent::run([this,filename]{return loadFile(filename);});
+        connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
+        fileLoadWatcher_.setFuture(fileLoadStatus_);
+    }
 
     connect(tools_, &ToolsWidget::settingChanged, this, qOverload<>(&QWidget::update));
 }
 
-void ImageCanvas::loadFile(QString const& filename)
+void ImageCanvas::onFileLoaded()
 {
-    const auto t0 = currentTime();
-
-    libRaw.imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
-    libRaw.open_file(filename.toStdString().c_str());
-    if(const auto error=libRaw.unpack())
+    if(const auto error = fileLoadStatus_.result())
     {
         QMessageBox::critical(this, tr("Error loading file"), tr("Failed to unpack file: %1").arg(libraw_strerror(error)));
         return;
     }
 
-    const auto t1 = currentTime();
-    qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
+    update();
 }
-
 void ImageCanvas::setupBuffers()
 {
     if(!vao_)
@@ -304,28 +319,6 @@ void ImageCanvas::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    const auto& sizes = libRaw.imgdata.rawdata.sizes;
-    const bool haveFP = libRaw.have_fpdata();
-    if(haveFP && libRaw.imgdata.rawdata.float_image)
-    {
-        qDebug() << "Using float data";
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
-                     0, GL_RED, GL_FLOAT, libRaw.imgdata.rawdata.float_image);
-    }
-    else if(!haveFP && libRaw.imgdata.rawdata.raw_image)
-    {
-        qDebug() << "Using uint16 data";
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
-                     0, GL_RED, GL_UNSIGNED_SHORT, libRaw.imgdata.rawdata.raw_image);
-    }
-    else
-    {
-        qDebug() << "No image available, showing constant color";
-        constexpr float texel=0.5;
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 1, 1, 0, GL_RED, GL_FLOAT, &texel);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    }
 
     glGenTextures(1, &demosaicedImageTex_);
     glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
@@ -333,7 +326,6 @@ void ImageCanvas::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
     glGenFramebuffers(1, &demosaicFBO_);
     glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, demosaicedImageTex_, 0);
@@ -342,9 +334,7 @@ void ImageCanvas::initializeGL()
 
     glFinish();
     const auto t1 = currentTime();
-    qDebug().nospace() << "OpenGL initialized and textures configured in " << double(t1-t0) << " seconds";
-
-    demosaicImage();
+    qDebug().nospace() << "OpenGL initialized in " << double(t1-t0) << " seconds";
 }
 
 ImageCanvas::~ImageCanvas()
@@ -355,6 +345,46 @@ ImageCanvas::~ImageCanvas()
 
 void ImageCanvas::demosaicImage()
 {
+    GLint origFBO=-1;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &origFBO);
+
+    {
+        const auto t0 = currentTime();
+
+        glActiveTexture(GL_TEXTURE0);
+
+        glBindTexture(GL_TEXTURE_2D, rawImageTex_);
+        const auto& sizes = libRaw.imgdata.rawdata.sizes;
+        const bool haveFP = libRaw.have_fpdata();
+        if(haveFP && libRaw.imgdata.rawdata.float_image)
+        {
+            qDebug() << "Using float data";
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
+                         0, GL_RED, GL_FLOAT, libRaw.imgdata.rawdata.float_image);
+        }
+        else if(!haveFP && libRaw.imgdata.rawdata.raw_image)
+        {
+            qDebug() << "Using uint16 data";
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
+                         0, GL_RED, GL_UNSIGNED_SHORT, libRaw.imgdata.rawdata.raw_image);
+        }
+        else
+        {
+            qDebug() << "No image available, showing constant color";
+            constexpr float texel=0.5;
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 1, 1, 0, GL_RED, GL_FLOAT, &texel);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        }
+
+        glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
+
+        glFinish();
+        const auto t1 = currentTime();
+        qDebug().nospace() << "Textures uploaded in " << double(t1-t0) << " seconds";
+    }
+
     const auto t0 = currentTime();
 
     glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
@@ -412,6 +442,10 @@ void ImageCanvas::demosaicImage()
     glFinish();
     const auto t1 = currentTime();
     qDebug().nospace() << "Image demosaiced in " << double(t1-t0) << " seconds";
+
+    glBindFramebuffer(GL_FRAMEBUFFER, origFBO);
+
+    demosaicedImageReady_ = true;
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent*const event)
@@ -488,6 +522,8 @@ double ImageCanvas::scaleToSteps(const double scale) const
 void ImageCanvas::paintGL()
 {
     if(!isVisible()) return;
+    if(!demosaicedImageReady_)
+        demosaicImage();
 
     glViewport(0, 0, width(), height());
     glBindVertexArray(vao_);
@@ -504,4 +540,28 @@ void ImageCanvas::paintGL()
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+void ImageCanvas::paintEvent(QPaintEvent*const event)
+{
+    if(!fileLoadStatus_.isFinished())
+    {
+        QPainter p(this);
+        p.fillRect(rect(), palette().window());
+        p.setPen(palette().windowText().color());
+        p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Loading file..."));
+        return;
+    }
+    if(!demosaicMessageShown_)
+    {
+        QPainter p(this);
+        p.fillRect(rect(), palette().window());
+        p.setPen(palette().windowText().color());
+        p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Demosaicing image..."));
+        demosaicMessageShown_ = true;
+        // And repaint, but avoid possible recursive call of paintEvent
+        QTimer::singleShot(0, [this]{update();});
+        return;
+    }
+    QOpenGLWidget::paintEvent(event);
 }

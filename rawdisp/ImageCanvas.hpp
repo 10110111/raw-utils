@@ -1,7 +1,9 @@
 #pragma once
 
 #include <libraw/libraw.h>
+#include <QFuture>
 #include <QOpenGLWidget>
+#include <QFutureWatcher>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLFunctions_3_3_Core>
 
@@ -21,12 +23,14 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void initializeGL() override;
     void paintGL() override;
+    void paintEvent(QPaintEvent* event) override;
 private:
-    void loadFile(QString const& filename);
+    int loadFile(QString const& filename);
     void setupBuffers();
     void setupShaders();
     void demosaicImage();
     double scale() const;
+    void onFileLoaded();
     double scaleToSteps(const double scale) const;
 
 private:
@@ -39,5 +43,9 @@ private:
     QPoint dragStartPos_;
     QPoint imageShift_;
     std::optional<double> scaleSteps_;
+    QFuture<int> fileLoadStatus_;
+    QFutureWatcher<int> fileLoadWatcher_;
+    bool demosaicedImageReady_=false;
+    bool demosaicMessageShown_=false;
     bool dragging_=false;
 };
