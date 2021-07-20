@@ -378,9 +378,9 @@ void ImageCanvas::demosaicImage()
         if(dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9])
             blackLevel = cblack[6];
         else if(dimX==0 && dimY==0)
-            qWarning().nospace() << "Warning: black level is zero\n";
+            qWarning().nospace() << "Warning: black level is zero";
         else
-            qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...\n";
+            qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...";
     }
     const float divisor = libRaw.is_floating_point() ? 1 : 65535;
     demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/divisor));
