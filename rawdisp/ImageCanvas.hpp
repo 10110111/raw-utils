@@ -17,6 +17,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
     void initializeGL() override;
     void paintGL() override;
 private:
@@ -24,6 +25,8 @@ private:
     void setupBuffers();
     void setupShaders();
     void demosaicImage();
+    double scale() const;
+    double scaleToSteps(const double scale) const;
 
 private:
     GLuint rawImageTex_=0, demosaicedImageTex_=0;
@@ -34,5 +37,6 @@ private:
     QOpenGLShaderProgram displayProgram_;
     QPoint dragStartPos_;
     QPoint imageShift_;
+    std::optional<double> scaleSteps_;
     bool dragging_=false;
 };

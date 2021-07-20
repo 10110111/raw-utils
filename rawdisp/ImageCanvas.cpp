@@ -224,6 +224,7 @@ void main()
     {
         const char*const vertSrc = 1+R"(
 #version 330
+#extension GL_ARB_shading_language_420pack : require
 in vec3 vertex;
 uniform float scale;
 uniform vec2 shift;
@@ -232,7 +233,8 @@ uniform vec2 imageSize;
 out vec2 texCoord;
 void main()
 {
-    texCoord = vertex.xy*(viewportSize/imageSize/scale)/2+0.5 + vec2(-shift.x,shift.y)/viewportSize;
+    const vec2 scaleRelativeToViewport = (viewportSize/imageSize/scale);
+    texCoord = vertex.xy*scaleRelativeToViewport/2+0.5 + vec2(-shift.x,shift.y)/viewportSize*scaleRelativeToViewport;
     gl_Position=vec4(vertex,1);
 }
 )";
@@ -388,6 +390,18 @@ void ImageCanvas::demosaicImage()
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
+void ImageCanvas::wheelEvent(QWheelEvent*const event)
+{
+    if((event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier)) != Qt::ControlModifier)
+        return;
+
+    const double steps = event->angleDelta().y() / 120.;
+    if(!scaleSteps_)
+        scaleSteps_ = scaleToSteps(scale());
+    scaleSteps_ = *scaleSteps_ + steps/2;
+    update();
+}
+
 void ImageCanvas::mouseMoveEvent(QMouseEvent*const event)
 {
     if(dragging_)
@@ -409,6 +423,21 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent*)
     dragging_ = false;
 }
 
+double ImageCanvas::scale() const
+{
+    const float imageWidth = libRaw.imgdata.sizes.width;
+    const float imageHeight = libRaw.imgdata.sizes.height;
+    float scale = std::min(width()/imageWidth, height()/imageHeight);
+    if(scaleSteps_)
+        scale = std::pow(2., *scaleSteps_ / 2.);
+    return scale;
+}
+
+double ImageCanvas::scaleToSteps(const double scale) const
+{
+    return std::log2(scale) * 2;
+}
+
 void ImageCanvas::paintGL()
 {
     if(!isVisible()) return;
@@ -420,12 +449,10 @@ void ImageCanvas::paintGL()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
     displayProgram_.setUniformValue("sRGBLinearImage", 0);
-    const float imageWidth = libRaw.imgdata.sizes.width;
-    const float imageHeight = libRaw.imgdata.sizes.height;
-    displayProgram_.setUniformValue("scale", std::min(width()/imageWidth, height()/imageHeight)); // TODO: vary
+    displayProgram_.setUniformValue("scale", float(scale()));
     displayProgram_.setUniformValue("shift", QVector2D(imageShift_.x(),imageShift_.y()));
     displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
-    displayProgram_.setUniformValue("imageSize", QVector2D(imageWidth, libRaw.imgdata.sizes.height));
+    displayProgram_.setUniformValue("imageSize", QVector2D(libRaw.imgdata.sizes.width, libRaw.imgdata.sizes.height));
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
