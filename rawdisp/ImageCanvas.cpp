@@ -1,9 +1,16 @@
 #include "ImageCanvas.hpp"
 #include <cmath>
+#include <chrono>
 #include <QDebug>
 #include <QMouseEvent>
 #include <QMessageBox>
 #include "ToolsWidget.hpp"
+
+static long double currentTime()
+{
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return std::chrono::duration<long double>(now).count();
+}
 
 constexpr int OPENGL_MAJOR_VERSION=3;
 constexpr int OPENGL_MINOR_VERSION=3;
@@ -30,6 +37,8 @@ ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* p
 
 void ImageCanvas::loadFile(QString const& filename)
 {
+    const auto t0 = currentTime();
+
     libRaw.imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
     libRaw.open_file(filename.toStdString().c_str());
     if(const auto error=libRaw.unpack())
@@ -37,6 +46,9 @@ void ImageCanvas::loadFile(QString const& filename)
         QMessageBox::critical(this, tr("Error loading file"), tr("Failed to unpack file: %1").arg(libraw_strerror(error)));
         return;
     }
+
+    const auto t1 = currentTime();
+    qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
 }
 
 void ImageCanvas::setupBuffers()
@@ -274,6 +286,7 @@ void main()
 
 void ImageCanvas::initializeGL()
 {
+    const auto t0 = currentTime();
     if(!initializeOpenGLFunctions())
     {
         QMessageBox::critical(this, tr("Error initializing OpenGL"), tr("Failed to initialize OpenGL %1.%2 functions")
@@ -327,6 +340,10 @@ void ImageCanvas::initializeGL()
 
     setupShaders();
 
+    glFinish();
+    const auto t1 = currentTime();
+    qDebug().nospace() << "OpenGL initialized and textures configured in " << double(t1-t0) << " seconds";
+
     demosaicImage();
 }
 
@@ -338,6 +355,8 @@ ImageCanvas::~ImageCanvas()
 
 void ImageCanvas::demosaicImage()
 {
+    const auto t0 = currentTime();
+
     glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
     const auto& sizes=libRaw.imgdata.sizes;
     glViewport(0, 0, sizes.width, sizes.height);
@@ -389,6 +408,10 @@ void ImageCanvas::demosaicImage()
 
     glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    glFinish();
+    const auto t1 = currentTime();
+    qDebug().nospace() << "Image demosaiced in " << double(t1-t0) << " seconds";
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent*const event)
