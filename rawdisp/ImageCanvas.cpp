@@ -20,6 +20,7 @@ ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* p
     , tools_(tools)
 {
     setFormat(makeFormat());
+    setFocusPolicy(Qt::StrongFocus);
 
     if(!filename.isEmpty())
         loadFile(filename);
@@ -424,6 +425,26 @@ void ImageCanvas::mousePressEvent(QMouseEvent*const event)
 void ImageCanvas::mouseReleaseEvent(QMouseEvent*)
 {
     dragging_ = false;
+}
+
+void ImageCanvas::keyPressEvent(QKeyEvent*const event)
+{
+    if(event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier))
+        return;
+    switch(event->key())
+    {
+    case Qt::Key_Z:
+        scaleSteps_ = 0.;
+        break;
+    case Qt::Key_X:
+        scaleSteps_.reset();
+        imageShift_ = QPoint(0,0);
+        break;
+    case Qt::Key_C:
+        imageShift_ = QPoint(0,0);
+        break;
+    }
+    update();
 }
 
 double ImageCanvas::scale() const
