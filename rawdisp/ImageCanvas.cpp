@@ -396,9 +396,12 @@ void ImageCanvas::wheelEvent(QWheelEvent*const event)
         return;
 
     const double steps = event->angleDelta().y() / 120.;
+    const double oldScale = scale();
     if(!scaleSteps_)
-        scaleSteps_ = scaleToSteps(scale());
+        scaleSteps_ = scaleToSteps(oldScale);
     scaleSteps_ = *scaleSteps_ + steps/2;
+    const double newScale = scale();
+    imageShift_ = (event->pos() - QPoint(width(),height())/2)*(1 - newScale/oldScale) + newScale/oldScale*imageShift_;
     update();
 }
 
