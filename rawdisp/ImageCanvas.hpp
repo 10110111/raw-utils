@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <libraw/libraw.h>
 #include <QFuture>
 #include <QOpenGLWidget>
@@ -10,7 +11,7 @@
 class ToolsWidget;
 class ImageCanvas : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core
 {
-    LibRaw libRaw;
+    std::shared_ptr<LibRaw> libRaw;
     ToolsWidget* tools_;
 public:
     ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* parent=nullptr);

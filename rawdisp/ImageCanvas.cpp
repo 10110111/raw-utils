@@ -28,9 +28,10 @@ int ImageCanvas::loadFile(QString const& filename)
 {
     const auto t0 = currentTime();
 
-    libRaw.imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
-    libRaw.open_file(filename.toStdString().c_str());
-    if(const auto error=libRaw.unpack())
+    libRaw.reset(new LibRaw);
+    libRaw->imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
+    libRaw->open_file(filename.toStdString().c_str());
+    if(const auto error=libRaw->unpack())
         return error;
 
     const auto t1 = currentTime();
@@ -357,19 +358,19 @@ void ImageCanvas::demosaicImage()
         glActiveTexture(GL_TEXTURE0);
 
         glBindTexture(GL_TEXTURE_2D, rawImageTex_);
-        const auto& sizes = libRaw.imgdata.rawdata.sizes;
-        const bool haveFP = libRaw.have_fpdata();
-        if(haveFP && libRaw.imgdata.rawdata.float_image)
+        const auto& sizes = libRaw->imgdata.rawdata.sizes;
+        const bool haveFP = libRaw->have_fpdata();
+        if(haveFP && libRaw->imgdata.rawdata.float_image)
         {
             qDebug() << "Using float data";
             glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
-                         0, GL_RED, GL_FLOAT, libRaw.imgdata.rawdata.float_image);
+                         0, GL_RED, GL_FLOAT, libRaw->imgdata.rawdata.float_image);
         }
-        else if(!haveFP && libRaw.imgdata.rawdata.raw_image)
+        else if(!haveFP && libRaw->imgdata.rawdata.raw_image)
         {
             qDebug() << "Using uint16 data";
             glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height,
-                         0, GL_RED, GL_UNSIGNED_SHORT, libRaw.imgdata.rawdata.raw_image);
+                         0, GL_RED, GL_UNSIGNED_SHORT, libRaw->imgdata.rawdata.raw_image);
         }
         else
         {
@@ -391,7 +392,7 @@ void ImageCanvas::demosaicImage()
     const auto t0 = currentTime();
 
     glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
-    const auto& sizes=libRaw.imgdata.sizes;
+    const auto& sizes=libRaw->imgdata.sizes;
     glViewport(0, 0, sizes.width, sizes.height);
 
     glBindVertexArray(vao_);
@@ -400,23 +401,23 @@ void ImageCanvas::demosaicImage()
     demosaicProgram_.bind();
     demosaicProgram_.setUniformValue("image", 0);
     {
-        if(libRaw.imgdata.idata.cdesc[libRaw.COLOR(0,1)] != 'G' || libRaw.imgdata.idata.cdesc[libRaw.COLOR(1,0)] != 'G')
+        if(libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)] != 'G' || libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)] != 'G')
             qWarning() << "Warning: unexpected CFA pattern, colors will be wrong!";
 
-        const char topLeftCF = libRaw.imgdata.idata.cdesc[libRaw.COLOR(0,0)];
+        const char topLeftCF = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
         if(topLeftCF == 'R')
             demosaicProgram_.setUniformValue("RED_FIRST", true);
         else
             demosaicProgram_.setUniformValue("RED_FIRST", false);
     }
     float blackLevel=0;
-    if(libRaw.imgdata.rawdata.color.black)
+    if(libRaw->imgdata.rawdata.color.black)
     {
-        blackLevel = libRaw.imgdata.rawdata.color.black;
+        blackLevel = libRaw->imgdata.rawdata.color.black;
     }
     else
     {
-        const auto& cblack = libRaw.imgdata.rawdata.color.cblack;
+        const auto& cblack = libRaw->imgdata.rawdata.color.cblack;
         const auto dimX=cblack[4], dimY=cblack[5];
         if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
             blackLevel = cblack[6];
@@ -425,17 +426,17 @@ void ImageCanvas::demosaicImage()
         else
             qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...";
     }
-    const float divisor = libRaw.is_floating_point() ? 1 : 65535;
+    const float divisor = libRaw->is_floating_point() ? 1 : 65535;
     demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/divisor));
-    demosaicProgram_.setUniformValue("whiteLevel", float(libRaw.imgdata.rawdata.color.maximum/divisor));
+    demosaicProgram_.setUniformValue("whiteLevel", float(libRaw->imgdata.rawdata.color.maximum/divisor));
     {
-        const auto& pre_mul=libRaw.imgdata.color.pre_mul;
+        const auto& pre_mul=libRaw->imgdata.color.pre_mul;
         const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
         const auto daylightWBCoefs = QVector3D(pre_mul[0],pre_mul[1],pre_mul[2])/preMulMax;
         demosaicProgram_.setUniformValue("whiteBalanceCoefs", daylightWBCoefs);
     }
     {
-        const auto& camrgb = libRaw.imgdata.rawdata.color.rgb_cam;
+        const auto& camrgb = libRaw->imgdata.rawdata.color.rgb_cam;
         const float cam2srgb[9] = {camrgb[0][0], camrgb[0][1], camrgb[0][2],
                                    camrgb[1][0], camrgb[1][1], camrgb[1][2],
                                    camrgb[2][0], camrgb[2][1], camrgb[2][2]};
@@ -519,8 +520,8 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
 
 double ImageCanvas::scale() const
 {
-    const float imageWidth = libRaw.imgdata.sizes.width;
-    const float imageHeight = libRaw.imgdata.sizes.height;
+    const float imageWidth = libRaw->imgdata.sizes.width;
+    const float imageHeight = libRaw->imgdata.sizes.height;
     float scale = std::min(width()/imageWidth, height()/imageHeight);
     if(scaleSteps_)
         scale = std::pow(2., *scaleSteps_ / 2.);
@@ -548,7 +549,7 @@ void ImageCanvas::paintGL()
     displayProgram_.setUniformValue("scale", float(scale()));
     displayProgram_.setUniformValue("shift", QVector2D(imageShift_.x(),imageShift_.y()));
     displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
-    displayProgram_.setUniformValue("imageSize", QVector2D(libRaw.imgdata.sizes.width, libRaw.imgdata.sizes.height));
+    displayProgram_.setUniformValue("imageSize", QVector2D(libRaw->imgdata.sizes.width, libRaw->imgdata.sizes.height));
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
