@@ -119,11 +119,7 @@ float samplePhotoSite(const vec2 pos, const vec2 offset)
     return texture(image, texCoord).r;
 }
 
-// FIXME: hard-coded RGGB pattern
-#define BAYER_RED    0
-#define BAYER_GREEN1 1
-#define BAYER_GREEN2 2
-#define BAYER_BLUE   3
+uniform bool RED_FIRST;
 
 void main()
 {
@@ -139,105 +135,112 @@ void main()
     const float vbl = samplePhotoSite(pos, vec2(-1,+1));
     const float vbc = samplePhotoSite(pos, vec2( 0,+1));
     const float vbr = samplePhotoSite(pos, vec2(+1,+1));
+
+    const int TOP_LEFT    =0;
+    const int TOP_RIGHT   =1;
+    const int BOTTOM_LEFT =2;
+    const int BOTTOM_RIGHT=3;
+
     const int photositeColorFilter = int(mod(pos.y, 2)*2 + mod(pos.x, 2));
-    float red=0, green=0, blue=0;
-    if(photositeColorFilter == BAYER_RED)
+    float subpixelFromTopLeftCF=0, green=0, subpixelFromBottomRightCF=0;
+    if(photositeColorFilter == TOP_LEFT)
     {
-        red = vcc;
+        subpixelFromTopLeftCF = vcc;
         if(pos.x==marginLeft && pos.y==marginTop)
         {
             green = (vcr+vbc)/2;
-            blue = vbr;
+            subpixelFromBottomRightCF = vbr;
         }
         else if(pos.y==marginTop)
         {
             green = (vcr+vbc+vcl)/3;
-            blue = (vbl+vbr)/2;
+            subpixelFromBottomRightCF = (vbl+vbr)/2;
         }
         else if(pos.x==marginLeft)
         {
             green = (vtc+vcr+vbc)/3;
-            blue = (vtr+vbr)/2;
+            subpixelFromBottomRightCF = (vtr+vbr)/2;
         }
         else
         {
             green = (vtc+vcr+vbc+vcl)/4;
-            blue = (vtl+vtr+vbl+vbr)/4;
+            subpixelFromBottomRightCF = (vtl+vtr+vbl+vbr)/4;
         }
     }
-    else if(photositeColorFilter == BAYER_GREEN1)
+    else if(photositeColorFilter == TOP_RIGHT)
     {
         green = vcc;
         if(pos.y==marginTop && pos.x==W-1-marginRight)
         {
-            red = vcl;
-            blue = vbc;
+            subpixelFromTopLeftCF = vcl;
+            subpixelFromBottomRightCF = vbc;
         }
         else if(pos.y==marginTop)
         {
-            red = (vcl+vcr)/2;
-            blue = vbc;
+            subpixelFromTopLeftCF = (vcl+vcr)/2;
+            subpixelFromBottomRightCF = vbc;
         }
         else if(pos.x==W-1-marginRight)
         {
-            red = vcl;
-            blue = (vtc+vbc)/2;
+            subpixelFromTopLeftCF = vcl;
+            subpixelFromBottomRightCF = (vtc+vbc)/2;
         }
         else
         {
-            red = (vcl+vcr)/2;
-            blue = (vtc+vbc)/2;
+            subpixelFromTopLeftCF = (vcl+vcr)/2;
+            subpixelFromBottomRightCF = (vtc+vbc)/2;
         }
     }
-    else if(photositeColorFilter == BAYER_GREEN2)
+    else if(photositeColorFilter == BOTTOM_LEFT)
     {
         green = vcc;
         if(pos.x==marginLeft && pos.y==H-1-marginBottom)
         {
-            red = vtc;
-            blue = vcr;
+            subpixelFromTopLeftCF = vtc;
+            subpixelFromBottomRightCF = vcr;
         }
         else if(pos.x==marginLeft)
         {
-            red = (vtc+vbc)/2;
-            blue = vcr;
+            subpixelFromTopLeftCF = (vtc+vbc)/2;
+            subpixelFromBottomRightCF = vcr;
         }
         else if(pos.y==H-1-marginBottom)
         {
-            red = vtc;
-            blue = (vcl+vcr)/2;
+            subpixelFromTopLeftCF = vtc;
+            subpixelFromBottomRightCF = (vcl+vcr)/2;
         }
         else
         {
-            red = (vtc+vbc)/2;
-            blue = (vcl+vcr)/2;
+            subpixelFromTopLeftCF = (vtc+vbc)/2;
+            subpixelFromBottomRightCF = (vcl+vcr)/2;
         }
     }
-    else if(photositeColorFilter == BAYER_BLUE)
+    else if(photositeColorFilter == BOTTOM_RIGHT)
     {
-        blue = vcc;
+        subpixelFromBottomRightCF = vcc;
         if(pos.y==H-1-marginBottom && pos.x==W-1-marginRight)
         {
-            red = vtl;
+            subpixelFromTopLeftCF = vtl;
             green = (vtc+vcl)/2;
         }
         else if(pos.y==H-1-marginBottom)
         {
-            red = (vtl+vtr)/2;
+            subpixelFromTopLeftCF = (vtl+vtr)/2;
             green = (vtc+vcr+vcl)/3;
         }
         else if(pos.x==W-1-marginRight)
         {
-            red = (vtl+vbl)/2;
+            subpixelFromTopLeftCF = (vtl+vbl)/2;
             green = (vtc+vbc+vcl)/3;
         }
         else
         {
-            red = (vtl+vtr+vbl+vbr)/4;
+            subpixelFromTopLeftCF = (vtl+vtr+vbl+vbr)/4;
             green = (vtc+vcr+vbc+vcl)/4;
         }
     }
-    const vec3 rawRGB = vec3(red,green,blue);
+    const vec3 rawRGB = RED_FIRST ? vec3(subpixelFromTopLeftCF,green,subpixelFromBottomRightCF) :
+                                    vec3(subpixelFromBottomRightCF,green,subpixelFromTopLeftCF);
     const vec3 balancedRGB = (rawRGB-blackLevel)/(whiteLevel-blackLevel)*whiteBalanceCoefs;
     linearSRGB = cam2srgb*balancedRGB;
 }
@@ -396,6 +399,16 @@ void ImageCanvas::demosaicImage()
     glBindTexture(GL_TEXTURE_2D, rawImageTex_);
     demosaicProgram_.bind();
     demosaicProgram_.setUniformValue("image", 0);
+    {
+        if(libRaw.imgdata.idata.cdesc[libRaw.COLOR(0,1)] != 'G' || libRaw.imgdata.idata.cdesc[libRaw.COLOR(1,0)] != 'G')
+            qWarning() << "Warning: unexpected CFA pattern, colors will be wrong!";
+
+        const char topLeftCF = libRaw.imgdata.idata.cdesc[libRaw.COLOR(0,0)];
+        if(topLeftCF == 'R')
+            demosaicProgram_.setUniformValue("RED_FIRST", true);
+        else
+            demosaicProgram_.setUniformValue("RED_FIRST", false);
+    }
     float blackLevel=0;
     if(libRaw.imgdata.rawdata.color.black)
     {
