@@ -117,7 +117,6 @@ void Histogram::paintEvent(QPaintEvent*)
         return;
     }
 
-    p.setCompositionMode(QPainter::CompositionMode_Plus);
     const int height = this->height();
     const int bottom = height-1;
     unsigned shift=0;
@@ -128,8 +127,14 @@ void Histogram::paintEvent(QPaintEvent*)
             ++shift;
             ++x;
         }
+        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        p.setPen(Qt::black);
+        p.drawLine(QPoint(x,bottom), QPoint(x,0));
+
+        p.setCompositionMode(QPainter::CompositionMode_Plus);
         constexpr double MAX = 0.9;
         const double logOffset = 1./countMax_;
+        int tallestLineTop=bottom+1;
         if(const double count = red_[x-shift])
         {
             p.setPen(Qt::red);
@@ -137,6 +142,8 @@ void Histogram::paintEvent(QPaintEvent*)
             if(logarithmic_)
                 redY = std::log10(redY+logOffset)/-std::log10(logOffset) + 1;
             const auto midRed = std::round(bottom - MAX*height*redY);
+            if(midRed<tallestLineTop)
+                tallestLineTop=midRed;
             p.drawLine(QPoint(x,bottom), QPoint(x,midRed));
         }
 
@@ -148,6 +155,8 @@ void Histogram::paintEvent(QPaintEvent*)
             if(logarithmic_)
                 greenY = std::log10(greenY+logOffset)/-std::log10(logOffset) + 1;
             const auto midGreen = std::round(bottom - MAX*height*greenY);
+            if(midGreen<tallestLineTop)
+                tallestLineTop=midGreen;
             p.drawLine(QPoint(x,bottom), QPoint(x,midGreen));
         }
 
@@ -158,8 +167,13 @@ void Histogram::paintEvent(QPaintEvent*)
             if(logarithmic_)
                 blueY = std::log10(blueY+logOffset)/-std::log10(logOffset) + 1;
             const auto midBlue = std::round(bottom - MAX*height*blueY);
+            if(midBlue<tallestLineTop)
+                tallestLineTop=midBlue;
             p.drawLine(QPoint(x,bottom), QPoint(x,midBlue));
         }
+
+        p.setPen(Qt::gray);
+        p.drawLine(QPoint(x,tallestLineTop-1), QPoint(x,0));
     }
     p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     p.setPen(QPen(Qt::black,1,Qt::DashLine));
