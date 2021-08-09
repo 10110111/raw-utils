@@ -356,8 +356,21 @@ float ImageCanvas::getBlackLevel()
     {
         const auto& cblack = libRaw->imgdata.rawdata.color.cblack;
         const auto dimX=cblack[4], dimY=cblack[5];
-        if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
+        if(dimX==1 && dimY==1)
+        {
             blackLevel = cblack[6];
+        }
+        else if(dimX==2 && dimY==2)
+        {
+            if(cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9])
+                blackLevel = cblack[6];
+            else
+            {
+                blackLevel = (cblack[6] + cblack[7] + cblack[8] + cblack[9])/4.;
+                emit warning(tr("Warning: black level values differ between photosites: %1,%2,%3,%4. Using average in computations.")
+                                .arg(cblack[6]).arg(cblack[7]).arg(cblack[8]).arg(cblack[9]));
+            }
+        }
         else if(dimX==0 && dimY==0)
             emit warning(tr("Warning: black level has zero dimensions"));
         else
