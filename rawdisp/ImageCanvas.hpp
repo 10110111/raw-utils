@@ -8,13 +8,15 @@
 #include <QOpenGLShaderProgram>
 #include <QOpenGLFunctions_3_3_Core>
 
+class Histogram;
 class ToolsWidget;
 class ImageCanvas : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core
 {
     std::shared_ptr<LibRaw> libRaw;
     ToolsWidget* tools_;
+    Histogram* histogram_;
 public:
-    ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* parent=nullptr);
+    ImageCanvas(QString const& filename, ToolsWidget* tools, Histogram* histogram, QWidget* parent=nullptr);
     ~ImageCanvas();
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -33,6 +35,7 @@ private:
     double scale() const;
     void onFileLoaded();
     double scaleToSteps(const double scale) const;
+    float getBlackLevel() const;
 
 private:
     GLuint rawImageTex_=0, demosaicedImageTex_=0;

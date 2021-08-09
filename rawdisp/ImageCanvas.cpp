@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QMessageBox>
 #include <QtConcurrent>
+#include "Histogram.hpp"
 #include "ToolsWidget.hpp"
 
 static long double currentTime()
@@ -33,6 +34,7 @@ int ImageCanvas::loadFile(QString const& filename)
     libRaw->open_file(filename.toStdString().c_str());
     if(const auto error=libRaw->unpack())
         return error;
+    histogram_->compute(libRaw, getBlackLevel());
 
     const auto t1 = currentTime();
     qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
@@ -40,9 +42,10 @@ int ImageCanvas::loadFile(QString const& filename)
     return LIBRAW_SUCCESS;
 }
 
-ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, QWidget* parent)
+ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, Histogram* histogram, QWidget* parent)
     : QOpenGLWidget(parent)
     , tools_(tools)
+    , histogram_(histogram)
 {
     setFormat(makeFormat());
     setFocusPolicy(Qt::StrongFocus);
@@ -347,6 +350,27 @@ ImageCanvas::~ImageCanvas()
     glDeleteTextures(1, &rawImageTex_);
 }
 
+float ImageCanvas::getBlackLevel() const
+{
+    float blackLevel = 0;
+    if(libRaw->imgdata.rawdata.color.black)
+    {
+        blackLevel = libRaw->imgdata.rawdata.color.black;
+    }
+    else
+    {
+        const auto& cblack = libRaw->imgdata.rawdata.color.cblack;
+        const auto dimX=cblack[4], dimY=cblack[5];
+        if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
+            blackLevel = cblack[6];
+        else if(dimX==0 && dimY==0)
+            qWarning().nospace() << "Warning: black level is zero";
+        else
+            qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...";
+    }
+    return blackLevel;
+}
+
 void ImageCanvas::demosaicImage()
 {
     GLint origFBO=-1;
@@ -410,22 +434,7 @@ void ImageCanvas::demosaicImage()
         else
             demosaicProgram_.setUniformValue("RED_FIRST", false);
     }
-    float blackLevel=0;
-    if(libRaw->imgdata.rawdata.color.black)
-    {
-        blackLevel = libRaw->imgdata.rawdata.color.black;
-    }
-    else
-    {
-        const auto& cblack = libRaw->imgdata.rawdata.color.cblack;
-        const auto dimX=cblack[4], dimY=cblack[5];
-        if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
-            blackLevel = cblack[6];
-        else if(dimX==0 && dimY==0)
-            qWarning().nospace() << "Warning: black level is zero";
-        else
-            qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...";
-    }
+    const float blackLevel=getBlackLevel();
     const float divisor = libRaw->is_floating_point() ? 1 : 65535;
     demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/divisor));
     demosaicProgram_.setUniformValue("whiteLevel", float(libRaw->imgdata.rawdata.color.maximum/divisor));

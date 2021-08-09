@@ -13,6 +13,7 @@ find_package(Qt5 5.9 REQUIRED Core OpenGL Concurrent)
 
 add_executable(rawdisp
                 rawdisp.cpp
+                Histogram.cpp
                 ImageCanvas.cpp
                 ToolsWidget.cpp
                 Manipulator.cpp

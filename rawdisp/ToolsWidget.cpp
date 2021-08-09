@@ -14,7 +14,7 @@ static Manipulator* addManipulator(QVBoxLayout*const layout, ToolsWidget*const t
 }
 
 ToolsWidget::ToolsWidget(QWidget* parent)
-    : QDockWidget(parent)
+    : QDockWidget(tr("Tools"),parent)
 {
     const auto mainWidget=new QWidget(this);
     const auto layout=new QVBoxLayout;
