@@ -1,19 +1,13 @@
 #include "ImageCanvas.hpp"
 #include <cmath>
-#include <chrono>
 #include <QDebug>
 #include <QPainter>
 #include <QMouseEvent>
 #include <QMessageBox>
 #include <QtConcurrent>
+#include "timing.hpp"
 #include "Histogram.hpp"
 #include "ToolsWidget.hpp"
-
-static long double currentTime()
-{
-    const auto now = std::chrono::steady_clock::now().time_since_epoch();
-    return std::chrono::duration<long double>(now).count();
-}
 
 constexpr int OPENGL_MAJOR_VERSION=3;
 constexpr int OPENGL_MINOR_VERSION=3;

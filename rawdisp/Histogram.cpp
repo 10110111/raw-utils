@@ -1,6 +1,8 @@
 #include "Histogram.hpp"
 #include <QDebug>
 #include <QPainter>
+#include <QResizeEvent>
+#include "timing.hpp"
 
 Histogram::Histogram(QWidget* parent)
     : QWidget(parent)
@@ -41,6 +43,7 @@ void Histogram::compute()
     auto& bottomLeft  = col10=='R' ? red_ : col10=='G' ? green_ : blue_;
     auto& bottomRight = col11=='R' ? red_ : col11=='G' ? green_ : blue_;
     const auto whiteLevel = libRaw_->imgdata.rawdata.color.maximum;
+    const auto t0 = currentTime();
     if(haveFP && libRaw_->imgdata.rawdata.float_image)
     {
         const auto* data = libRaw_->imgdata.rawdata.float_image;
@@ -97,7 +100,8 @@ void Histogram::compute()
         const auto greenMax = *std::max_element(green_.begin(), green_.end());
         const auto blueMax  = *std::max_element(blue_.begin(), blue_.end());
         countMax_ = std::max({redMax,(greenMax+1)/2,blueMax});
-        qDebug().nospace() << "Histogram computed. Maximum count: " << countMax_;
+        const auto t1 = currentTime();
+        qDebug().nospace() << "Histogram with " << numBins << " bins computed in " << double(t1-t0) << " seconds";
     }
     update();
 }
@@ -164,9 +168,10 @@ void Histogram::paintEvent(QPaintEvent*)
     p.drawLine(QPoint(whiteLevelBin_,bottom), QPoint(whiteLevelBin_,0));
 }
 
-void Histogram::resizeEvent(QResizeEvent*)
+void Histogram::resizeEvent(QResizeEvent*const event)
 {
-    compute();
+    if(event->oldSize().width()!=width())
+        compute();
 }
 
 void Histogram::setLogY(const bool enable)
