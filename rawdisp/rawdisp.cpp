@@ -15,7 +15,7 @@ int main(int argc, char** argv)
     QMainWindow mainWin;
     mainWin.statusBar();
 
-    const auto histDock = new QDockWidget(QObject::tr("Histogram"));
+    const auto histDock = new QDockWidget(QObject::tr("Raw Histogram"));
     const auto histogram = new Histogram;
     const auto histHolder = new QWidget;
     const auto histLayout = new QVBoxLayout;
