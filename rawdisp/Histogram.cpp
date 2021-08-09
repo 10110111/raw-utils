@@ -121,7 +121,7 @@ void Histogram::paintEvent(QPaintEvent*)
     const int height = this->height();
     const int bottom = height-1;
     unsigned shift=0;
-    for(unsigned x=0; x<red_.size(); ++x)
+    for(unsigned x=0; x<red_.size()+2; ++x)
     {
         if(x==blackLevelBin_ || x==whiteLevelBin_)
         {
