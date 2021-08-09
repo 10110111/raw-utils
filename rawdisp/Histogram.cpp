@@ -113,7 +113,7 @@ void Histogram::paintEvent(QPaintEvent*)
 
     if(red_.empty() || green_.empty() || blue_.empty())
     {
-        qDebug() << "No histogram, nothing to paint";
+        p.drawText(rect(), Qt::AlignCenter|Qt::AlignHCenter, tr("(no data)"));
         return;
     }
 
