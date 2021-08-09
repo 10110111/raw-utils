@@ -27,6 +27,7 @@ static QSurfaceFormat makeFormat()
 
 int ImageCanvas::loadFile(QString const& filename)
 {
+    emit warning("");
     const auto t0 = currentTime();
 
     libRaw.reset(new LibRaw);
@@ -350,7 +351,7 @@ ImageCanvas::~ImageCanvas()
     glDeleteTextures(1, &rawImageTex_);
 }
 
-float ImageCanvas::getBlackLevel() const
+float ImageCanvas::getBlackLevel()
 {
     float blackLevel = 0;
     if(libRaw->imgdata.rawdata.color.black)
@@ -364,9 +365,10 @@ float ImageCanvas::getBlackLevel() const
         if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
             blackLevel = cblack[6];
         else if(dimX==0 && dimY==0)
-            qWarning().nospace() << "Warning: black level is zero";
+            emit warning(tr("Warning: black level is zero"));
         else
-            qWarning().nospace() << "Warning: unexpected configuration of black level information: dimensions " << dimX << "×" << dimY << ", data: " << cblack[6] << ", " << cblack[7] << ", " << cblack[8] << ", " << cblack[9] << ", ...";
+            emit warning(tr(u8"Warning: unexpected configuration of black level information: dimensions %1×%2, data: %3,%4,%5,%6,...")
+                            .arg(dimX).arg(dimY).arg(cblack[6]).arg(cblack[7]).arg(cblack[8]).arg(cblack[9]));
     }
     return blackLevel;
 }
@@ -426,7 +428,13 @@ void ImageCanvas::demosaicImage()
     demosaicProgram_.setUniformValue("image", 0);
     {
         if(libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)] != 'G' || libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)] != 'G')
-            qWarning() << "Warning: unexpected CFA pattern, colors will be wrong!";
+        {
+            const auto col00 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
+            const auto col01 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)];
+            const auto col10 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)];
+            const auto col11 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,1)];
+            emit warning(tr("Warning: unexpected CFA pattern (%1%2/%3%4), colors will be wrong!").arg(col00).arg(col01).arg(col10).arg(col11));
+        }
 
         const char topLeftCF = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
         if(topLeftCF == 'R')

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <QScreen>
 #include <QCheckBox>
+#include <QStatusBar>
 #include <QHBoxLayout>
 #include <QMainWindow>
 #include <QApplication>
@@ -12,6 +13,7 @@ int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
     QMainWindow mainWin;
+    mainWin.statusBar();
 
     const auto histDock = new QDockWidget(QObject::tr("Histogram"));
     const auto histogram = new Histogram;
@@ -30,6 +32,7 @@ int main(int argc, char** argv)
     mainWin.addDockWidget(Qt::RightDockWidgetArea, tools);
 
     const auto canvas = new ImageCanvas(argv[1] ? argv[1] : "", tools, histogram);
+    QObject::connect(canvas, &ImageCanvas::warning, [&mainWin](QString const& w){ mainWin.statusBar()->showMessage(w); });
     mainWin.setCentralWidget(canvas);
     mainWin.resize(app.primaryScreen()->size()/1.6);
     mainWin.show();
