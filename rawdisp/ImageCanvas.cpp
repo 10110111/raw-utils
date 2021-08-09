@@ -359,7 +359,7 @@ float ImageCanvas::getBlackLevel()
         if((dimX==2 && dimY==2 && cblack[6]==cblack[7] && cblack[6]==cblack[8] && cblack[6]==cblack[9]) || (dimX==1 && dimY==1))
             blackLevel = cblack[6];
         else if(dimX==0 && dimY==0)
-            emit warning(tr("Warning: black level is zero"));
+            emit warning(tr("Warning: black level has zero dimensions"));
         else
             emit warning(tr(u8"Warning: unexpected configuration of black level information: dimensions %1×%2, data: %3,%4,%5,%6,...")
                             .arg(dimX).arg(dimY).arg(cblack[6]).arg(cblack[7]).arg(cblack[8]).arg(cblack[9]));
