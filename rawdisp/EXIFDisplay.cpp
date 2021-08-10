@@ -19,7 +19,7 @@ std::vector<Entry> entriesToShow
 {
     {"Camera", "Exif.Image.Model"},
     {"Lens model", "Exif.Photo.LensModel"},
-    {"Shutter speed", "Exif.Photo.ShutterSpeedValue"},
+    {"Exposure time", "Exif.Photo.ExposureTime"},
     {"Date", "Exif.Photo.DateTimeOriginal"},
 };
 
