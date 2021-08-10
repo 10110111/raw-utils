@@ -3,6 +3,7 @@
 #include <memory>
 #include <libraw/libraw.h>
 #include <QWidget>
+#include <QFutureWatcher>
 
 class Histogram : public QWidget
 {
@@ -13,6 +14,14 @@ class Histogram : public QWidget
     unsigned whiteLevelBin_=0;
     unsigned countMax_=1;
     bool logarithmic_=true;
+    struct Update
+    {
+        std::vector<unsigned> red, green, blue;
+        unsigned blackLevelBin=0;
+        unsigned whiteLevelBin=0;
+        unsigned countMax=1;
+    };
+    QFutureWatcher<std::shared_ptr<Update>> updateWatcher_;
 public:
     Histogram(QWidget* parent=nullptr);
     void compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel);
@@ -22,4 +31,5 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 private:
     void compute();
+    void onComputed();
 };

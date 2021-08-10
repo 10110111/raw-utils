@@ -2,12 +2,14 @@
 #include <QDebug>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QtConcurrent>
 #include "timing.hpp"
 
 Histogram::Histogram(QWidget* parent)
     : QWidget(parent)
 {
     setAttribute(Qt::WA_NoSystemBackground);
+    connect(&updateWatcher_, &QFutureWatcher<Update>::finished, this, &Histogram::onComputed);
 }
 
 void Histogram::compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel)
@@ -24,86 +26,92 @@ void Histogram::compute()
     red_.clear();
     green_.clear();
     blue_.clear();
-    const auto numBins = width() - 2; // two columns reserved for black & white levels
-    red_.resize(numBins);
-    green_.resize(numBins);
-    blue_.resize(numBins);
-    const bool haveFP = libRaw_->have_fpdata();
-    const auto marginLeft = libRaw_->imgdata.sizes.left_margin;
-    const auto marginTop  = libRaw_->imgdata.sizes.top_margin;
-    const auto xMax = marginLeft + libRaw_->imgdata.sizes.width;
-    const auto yMax = marginTop  + libRaw_->imgdata.sizes.height;
-    const auto stride = libRaw_->imgdata.sizes.raw_width;
-    const auto col00 = libRaw_->imgdata.idata.cdesc[libRaw_->COLOR(0,0)];
-    const auto col01 = libRaw_->imgdata.idata.cdesc[libRaw_->COLOR(0,1)];
-    const auto col10 = libRaw_->imgdata.idata.cdesc[libRaw_->COLOR(1,0)];
-    const auto col11 = libRaw_->imgdata.idata.cdesc[libRaw_->COLOR(1,1)];
-    auto& topLeft     = col00=='R' ? red_ : col00=='G' ? green_ : blue_;
-    auto& topRight    = col01=='R' ? red_ : col01=='G' ? green_ : blue_;
-    auto& bottomLeft  = col10=='R' ? red_ : col10=='G' ? green_ : blue_;
-    auto& bottomRight = col11=='R' ? red_ : col11=='G' ? green_ : blue_;
-    const auto whiteLevel = libRaw_->imgdata.rawdata.color.maximum;
-    const auto t0 = currentTime();
-    if(haveFP && libRaw_->imgdata.rawdata.float_image)
-    {
-        const auto* data = libRaw_->imgdata.rawdata.float_image;
-        const auto binNum = [=](const float v) -> unsigned
-                            {
-                                const auto b = std::lround(double(v)/(1.1*whiteLevel)*(numBins-1));
-                                return b>=numBins ? numBins-1 : b;
-                            };
-        blackLevelBin_=binNum(blackLevel_);
-        whiteLevelBin_=binNum(whiteLevel);
-        for(int y=marginTop; y<yMax-1; y+=2)
-        {
-            for(int x=marginLeft; x<xMax-1; x+=2)
-            {
-                const auto tl = data[(y+0)*stride+x+0];
-                const auto tr = data[(y+0)*stride+x+1];
-                const auto bl = data[(y+1)*stride+x+0];
-                const auto br = data[(y+1)*stride+x+1];
-                ++topLeft[binNum(tl)];
-                ++topRight[binNum(tr)];
-                ++bottomLeft[binNum(bl)];
-                ++bottomRight[binNum(br)];
-            }
-        }
-    }
-    else if(!haveFP && libRaw_->imgdata.rawdata.raw_image)
-    {
-        const auto* data = libRaw_->imgdata.rawdata.raw_image;
-        const auto binNum = [=](const unsigned v) -> unsigned
-                            {
-                                const auto b = std::lround(double(v)/(1.1*whiteLevel)*(numBins-1));
-                                return b>=numBins ? numBins-1 : b;
-                            };
-        blackLevelBin_=binNum(blackLevel_);
-        whiteLevelBin_=binNum(whiteLevel);
-        for(int y=marginTop; y<yMax-1; y+=2)
-        {
-            for(int x=marginLeft; x<xMax-1; x+=2)
-            {
-                const auto tl = data[(y+0)*stride+x+0];
-                const auto tr = data[(y+0)*stride+x+1];
-                const auto bl = data[(y+1)*stride+x+0];
-                const auto br = data[(y+1)*stride+x+1];
-                ++topLeft[binNum(tl)];
-                ++topRight[binNum(tr)];
-                ++bottomLeft[binNum(bl)];
-                ++bottomRight[binNum(br)];
-            }
-        }
-    }
-    if(red_.size())
-    {
-        const auto redMax   = *std::max_element(red_.begin(), red_.end());
-        const auto greenMax = *std::max_element(green_.begin(), green_.end());
-        const auto blueMax  = *std::max_element(blue_.begin(), blue_.end());
-        countMax_ = std::max({redMax,(greenMax+1)/2,blueMax});
-        const auto t1 = currentTime();
-        qDebug().nospace() << "Histogram with " << numBins << " bins computed in " << double(t1-t0) << " seconds";
-    }
     update();
+    const auto future = QtConcurrent::run([libRaw=libRaw_,blackLevel=blackLevel_,histWidth=width()]
+    {
+        const auto numBins = histWidth - 2; // two columns reserved for black & white levels
+        auto out=std::make_shared<Update>();
+        out->red.resize(numBins);
+        out->green.resize(numBins);
+        out->blue.resize(numBins);
+        const bool haveFP = libRaw->have_fpdata();
+        const auto marginLeft = libRaw->imgdata.sizes.left_margin;
+        const auto marginTop  = libRaw->imgdata.sizes.top_margin;
+        const auto xMax = marginLeft + libRaw->imgdata.sizes.width;
+        const auto yMax = marginTop  + libRaw->imgdata.sizes.height;
+        const auto stride = libRaw->imgdata.sizes.raw_width;
+        const auto col00 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
+        const auto col01 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)];
+        const auto col10 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)];
+        const auto col11 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,1)];
+        auto& topLeft     = col00=='R' ? out->red : col00=='G' ? out->green : out->blue;
+        auto& topRight    = col01=='R' ? out->red : col01=='G' ? out->green : out->blue;
+        auto& bottomLeft  = col10=='R' ? out->red : col10=='G' ? out->green : out->blue;
+        auto& bottomRight = col11=='R' ? out->red : col11=='G' ? out->green : out->blue;
+        const auto whiteLevel = libRaw->imgdata.rawdata.color.maximum;
+        const auto t0 = currentTime();
+        if(haveFP && libRaw->imgdata.rawdata.float_image)
+        {
+            const auto* data = libRaw->imgdata.rawdata.float_image;
+            const auto binNum = [=](const float v) -> unsigned
+                                {
+                                    const auto b = std::lround(double(v)/(1.1*whiteLevel)*(numBins-1));
+                                    return b>=numBins ? numBins-1 : b;
+                                };
+            out->blackLevelBin=binNum(blackLevel);
+            out->whiteLevelBin=binNum(whiteLevel);
+            for(int y=marginTop; y<yMax-1; y+=2)
+            {
+                for(int x=marginLeft; x<xMax-1; x+=2)
+                {
+                    const auto tl = data[(y+0)*stride+x+0];
+                    const auto tr = data[(y+0)*stride+x+1];
+                    const auto bl = data[(y+1)*stride+x+0];
+                    const auto br = data[(y+1)*stride+x+1];
+                    ++topLeft[binNum(tl)];
+                    ++topRight[binNum(tr)];
+                    ++bottomLeft[binNum(bl)];
+                    ++bottomRight[binNum(br)];
+                }
+            }
+        }
+        else if(!haveFP && libRaw->imgdata.rawdata.raw_image)
+        {
+            const auto* data = libRaw->imgdata.rawdata.raw_image;
+            const auto binNum = [=](const unsigned v) -> unsigned
+                                {
+                                    const auto b = std::lround(double(v)/(1.1*whiteLevel)*(numBins-1));
+                                    return b>=numBins ? numBins-1 : b;
+                                };
+            out->blackLevelBin=binNum(blackLevel);
+            out->whiteLevelBin=binNum(whiteLevel);
+            for(int y=marginTop; y<yMax-1; y+=2)
+            {
+                for(int x=marginLeft; x<xMax-1; x+=2)
+                {
+                    const auto tl = data[(y+0)*stride+x+0];
+                    const auto tr = data[(y+0)*stride+x+1];
+                    const auto bl = data[(y+1)*stride+x+0];
+                    const auto br = data[(y+1)*stride+x+1];
+                    ++topLeft[binNum(tl)];
+                    ++topRight[binNum(tr)];
+                    ++bottomLeft[binNum(bl)];
+                    ++bottomRight[binNum(br)];
+                }
+            }
+        }
+        if(out->red.size())
+        {
+            const auto redMax   = *std::max_element(out->red.begin(), out->red.end());
+            const auto greenMax = *std::max_element(out->green.begin(), out->green.end());
+            const auto blueMax  = *std::max_element(out->blue.begin(), out->blue.end());
+            out->countMax = std::max({redMax,(greenMax+1)/2,blueMax});
+            const auto t1 = currentTime();
+            qDebug().nospace() << "Histogram with " << numBins << " bins computed in " << double(t1-t0) << " seconds";
+        }
+        return out;
+    });
+    updateWatcher_.setFuture(future);
 }
 
 void Histogram::paintEvent(QPaintEvent*)
@@ -191,5 +199,17 @@ void Histogram::resizeEvent(QResizeEvent*const event)
 void Histogram::setLogY(const bool enable)
 {
     logarithmic_=enable;
+    update();
+}
+
+void Histogram::onComputed()
+{
+    const auto u = updateWatcher_.future().result();
+    red_   = std::move(u->red);
+    green_ = std::move(u->green);
+    blue_  = std::move(u->blue);
+    blackLevelBin_ = u->blackLevelBin;
+    whiteLevelBin_ = u->whiteLevelBin;
+    countMax_ = u->countMax;
     update();
 }
