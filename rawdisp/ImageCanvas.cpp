@@ -1,5 +1,6 @@
 #include "ImageCanvas.hpp"
 #include <cmath>
+#include <cstring>
 #include <QDebug>
 #include <QPainter>
 #include <QMouseEvent>
@@ -22,6 +23,7 @@ static QSurfaceFormat makeFormat()
 int ImageCanvas::loadFile(QString const& filename)
 {
     emit warning("");
+    emit loadingFile(filename);
     const auto t0 = currentTime();
 
     libRaw.reset(new LibRaw);

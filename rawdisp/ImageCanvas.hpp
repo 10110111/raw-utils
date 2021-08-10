@@ -22,6 +22,7 @@ public:
 
 signals:
     void warning(QString const&);
+    void loadingFile(QString const&);
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;

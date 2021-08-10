@@ -10,12 +10,18 @@ endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 find_package(Qt5 5.9 REQUIRED Core OpenGL Concurrent)
+include(FindPkgConfig)
+pkg_check_modules(exiv2 REQUIRED exiv2)
 
 add_executable(rawdisp
                 rawdisp.cpp
                 Histogram.cpp
+                EXIFDisplay.cpp
                 ImageCanvas.cpp
                 ToolsWidget.cpp
                 Manipulator.cpp
               )
-target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent raw GL)
+if(exiv2_INCLUDE_DIRS)
+    include_directories(${exiv2_INCLUDE_DIRS})
+endif()
+target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent raw GL ${exiv2_LIBRARIES})
