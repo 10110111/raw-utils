@@ -584,6 +584,14 @@ void ImageCanvas::paintGL()
 
 void ImageCanvas::paintEvent(QPaintEvent*const event)
 {
+    if(!libRaw)
+    {
+        QPainter p(this);
+        p.fillRect(rect(), palette().window());
+        p.setPen(palette().windowText().color());
+        p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("(nothing to display)"));
+        return;
+    }
     if(!fileLoadStatus_.isFinished())
     {
         QPainter p(this);
