@@ -54,5 +54,8 @@ int main(int argc, char** argv)
     mainWin.setCentralWidget(canvas);
     mainWin.resize(app.primaryScreen()->size()/1.6);
     mainWin.show();
+
+    canvas->setFocus(Qt::OtherFocusReason);
+
     return app.exec();
 }
