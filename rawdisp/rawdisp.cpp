@@ -47,6 +47,10 @@ int main(int argc, char** argv)
     mainWin.addDockWidget(Qt::RightDockWidgetArea, exif);
 
     const auto canvas = new ImageCanvas(argv[1] ? argv[1] : "", tools, histogram);
+    const auto zoomLabel = new QLabel("Zoom: N/A");
+    mainWin.statusBar()->addPermanentWidget(zoomLabel);
+    QObject::connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
+                     { zoomLabel->setText(QString(u8"Zoom: %1%").arg(zoom*100,0,'g',3)); });
     QObject::connect(canvas, &ImageCanvas::warning, [&mainWin](QString const& w){ mainWin.statusBar()->showMessage(w); });
     QObject::connect(canvas, &ImageCanvas::loadingFile, exif, &EXIFDisplay::loadFile);
     QObject::connect(canvas, &ImageCanvas::loadingFile, [&mainWin](QString const& file)

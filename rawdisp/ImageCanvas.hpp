@@ -23,6 +23,7 @@ public:
 signals:
     void warning(QString const&);
     void loadingFile(QString const&);
+    void zoomChanged(double zoom);
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -30,6 +31,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void initializeGL() override;
+    void resizeGL(int w, int h) override;
     void paintGL() override;
     void paintEvent(QPaintEvent* event) override;
 private:

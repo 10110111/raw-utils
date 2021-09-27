@@ -488,6 +488,11 @@ void ImageCanvas::demosaicImage()
     demosaicedImageReady_ = true;
 }
 
+void ImageCanvas::resizeGL([[maybe_unused]] const int w, [[maybe_unused]] const int h)
+{
+    emit zoomChanged(scale());
+}
+
 void ImageCanvas::wheelEvent(QWheelEvent*const event)
 {
     if((event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier)) != Qt::ControlModifier)
@@ -501,6 +506,7 @@ void ImageCanvas::wheelEvent(QWheelEvent*const event)
     const double newScale = scale();
     imageShift_ = (event->pos() - QPoint(width(),height())/2)*(1 - newScale/oldScale) + newScale/oldScale*imageShift_;
     update();
+    emit zoomChanged(newScale);
 }
 
 void ImageCanvas::mouseMoveEvent(QMouseEvent*const event)
@@ -532,10 +538,12 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
     {
     case Qt::Key_Z:
         scaleSteps_ = 0.;
+        emit zoomChanged(scale());
         break;
     case Qt::Key_X:
         scaleSteps_.reset();
         imageShift_ = QPoint(0,0);
+        emit zoomChanged(scale());
         break;
     case Qt::Key_C:
         imageShift_ = QPoint(0,0);
@@ -598,6 +606,7 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
         p.fillRect(rect(), palette().window());
         p.setPen(palette().windowText().color());
         p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Loading file..."));
+        emit zoomChanged(scale());
         return;
     }
     if(!demosaicMessageShown_)
