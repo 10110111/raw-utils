@@ -27,13 +27,19 @@ void Histogram::compute()
     green_.clear();
     blue_.clear();
     update();
-    const auto future = QtConcurrent::run([libRaw=libRaw_,blackLevel=blackLevel_,histWidth=width()]
+    ++lastUpdateIndex_;
+    const auto future = QtConcurrent::run([libRaw=libRaw_,blackLevel=blackLevel_,histWidth=width(),
+                                           updateIndex=lastUpdateIndex_.load(),
+                                           &lastUpdateIndex=lastUpdateIndex_]
     {
         const auto numBins = histWidth - 2; // two columns reserved for black & white levels
         auto out=std::make_shared<Update>();
         out->red.resize(numBins);
         out->green.resize(numBins);
         out->blue.resize(numBins);
+
+        const auto quit = [&out] { out->red.clear(); out->green.clear(); out->blue.clear(); return out; };
+
         const bool haveFP = libRaw->have_fpdata();
         const auto marginLeft = libRaw->imgdata.sizes.left_margin;
         const auto marginTop  = libRaw->imgdata.sizes.top_margin;
@@ -64,6 +70,8 @@ void Histogram::compute()
             {
                 for(int x=marginLeft; x<xMax-1; x+=2)
                 {
+                    if(updateIndex!=lastUpdateIndex)
+                        return quit();
                     const auto tl = data[(y+0)*stride+x+0];
                     const auto tr = data[(y+0)*stride+x+1];
                     const auto bl = data[(y+1)*stride+x+0];
@@ -89,6 +97,8 @@ void Histogram::compute()
             {
                 for(int x=marginLeft; x<xMax-1; x+=2)
                 {
+                    if(updateIndex!=lastUpdateIndex)
+                        return quit();
                     const auto tl = data[(y+0)*stride+x+0];
                     const auto tr = data[(y+0)*stride+x+1];
                     const auto bl = data[(y+1)*stride+x+0];

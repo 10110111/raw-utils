@@ -21,6 +21,7 @@ class Histogram : public QWidget
         unsigned whiteLevelBin=0;
         unsigned countMax=1;
     };
+    std::atomic<unsigned> lastUpdateIndex_{0};
     QFutureWatcher<std::shared_ptr<Update>> updateWatcher_;
 public:
     Histogram(QWidget* parent=nullptr);
