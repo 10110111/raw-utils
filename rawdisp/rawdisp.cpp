@@ -19,6 +19,24 @@ QString formatWindowTitle(QString const& filename)
     return QObject::tr("%1 - rawdisp").arg(QFileInfo(filename).fileName());
 }
 
+void toggleFullScreen(QMainWindow& mainWin, std::vector<QWidget*> const& docks)
+{
+    if(mainWin.statusBar()->isVisible())
+    {
+        mainWin.statusBar()->hide();
+        mainWin.showFullScreen();
+        for(const auto dock : docks)
+            dock->hide();
+    }
+    else
+    {
+        mainWin.statusBar()->show();
+        mainWin.showNormal();
+        for(const auto dock : docks)
+            dock->show();
+    }
+}
+
 }
 
 int main(int argc, char** argv)
@@ -55,6 +73,8 @@ int main(int argc, char** argv)
     QObject::connect(canvas, &ImageCanvas::loadingFile, exif, &EXIFDisplay::loadFile);
     QObject::connect(canvas, &ImageCanvas::loadingFile, [&mainWin](QString const& file)
                      { mainWin.setWindowTitle(formatWindowTitle(file)); });
+    QObject::connect(canvas, &ImageCanvas::fullScreenToggleRequested, exif,
+                     [&mainWin, histDock,tools,exif]{toggleFullScreen(mainWin, {histDock,tools,exif});});
     mainWin.setCentralWidget(canvas);
     mainWin.resize(app.primaryScreen()->size()/1.6);
     mainWin.show();

@@ -548,6 +548,9 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
     case Qt::Key_C:
         imageShift_ = QPoint(0,0);
         break;
+    case Qt::Key_F11:
+        emit fullScreenToggleRequested();
+        return;
     }
     update();
 }

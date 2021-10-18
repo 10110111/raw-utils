@@ -24,6 +24,7 @@ signals:
     void warning(QString const&);
     void loadingFile(QString const&);
     void zoomChanged(double zoom);
+    void fullScreenToggleRequested();
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
