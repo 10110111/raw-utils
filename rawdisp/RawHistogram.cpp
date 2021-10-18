@@ -1,26 +1,26 @@
-#include "Histogram.hpp"
+#include "RawHistogram.hpp"
 #include <QDebug>
 #include <QPainter>
 #include <QResizeEvent>
 #include <QtConcurrent>
 #include "timing.hpp"
 
-Histogram::Histogram(QWidget* parent)
+RawHistogram::RawHistogram(QWidget* parent)
     : QWidget(parent)
 {
     setAttribute(Qt::WA_NoSystemBackground);
-    connect(&updateWatcher_, &QFutureWatcher<Update>::finished, this, &Histogram::onComputed);
-    logarithmic_ = QSettings().value("Histogram/logY", false).toBool();
+    connect(&updateWatcher_, &QFutureWatcher<Update>::finished, this, &RawHistogram::onComputed);
+    logarithmic_ = QSettings().value("RawHistogram/logY", false).toBool();
 }
 
-void Histogram::compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel)
+void RawHistogram::compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel)
 {
     libRaw_=libRaw;
     blackLevel_=blackLevel;
     compute();
 }
 
-void Histogram::compute()
+void RawHistogram::compute()
 {
     if(!libRaw_) return;
 
@@ -118,14 +118,14 @@ void Histogram::compute()
             const auto blueMax  = *std::max_element(out->blue.begin(), out->blue.end());
             out->countMax = std::max({redMax,(greenMax+1)/2,blueMax});
             const auto t1 = currentTime();
-            qDebug().nospace() << "Histogram with " << numBins << " bins computed in " << double(t1-t0) << " seconds";
+            qDebug().nospace() << "Raw histogram with " << numBins << " bins computed in " << double(t1-t0) << " seconds";
         }
         return out;
     });
     updateWatcher_.setFuture(future);
 }
 
-void Histogram::paintEvent(QPaintEvent*)
+void RawHistogram::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.fillRect(rect(), Qt::gray);
@@ -201,20 +201,20 @@ void Histogram::paintEvent(QPaintEvent*)
     p.drawLine(QPoint(whiteLevelBin_,bottom), QPoint(whiteLevelBin_,0));
 }
 
-void Histogram::resizeEvent(QResizeEvent*const event)
+void RawHistogram::resizeEvent(QResizeEvent*const event)
 {
     if(event->oldSize().width()!=width())
         compute();
 }
 
-void Histogram::setLogY(const bool enable)
+void RawHistogram::setLogY(const bool enable)
 {
     logarithmic_=enable;
-    QSettings().setValue("Histogram/logY", enable);
+    QSettings().setValue("RawHistogram/logY", enable);
     update();
 }
 
-void Histogram::onComputed()
+void RawHistogram::onComputed()
 {
     const auto u = updateWatcher_.future().result();
     red_   = std::move(u->red);

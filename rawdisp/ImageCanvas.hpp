@@ -8,16 +8,16 @@
 #include <QOpenGLShaderProgram>
 #include <QOpenGLFunctions_3_3_Core>
 
-class Histogram;
+class RawHistogram;
 class ToolsWidget;
 class ImageCanvas : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core
 {
     Q_OBJECT
     std::shared_ptr<LibRaw> libRaw;
     ToolsWidget* tools_;
-    Histogram* histogram_;
+    RawHistogram* histogram_;
 public:
-    ImageCanvas(ToolsWidget* tools, Histogram* histogram, QWidget* parent=nullptr);
+    ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* parent=nullptr);
     ~ImageCanvas();
     void openFile(QString const& filename);
 

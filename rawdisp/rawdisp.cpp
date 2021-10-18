@@ -6,7 +6,7 @@
 #include <QHBoxLayout>
 #include <QMainWindow>
 #include <QApplication>
-#include "Histogram.hpp"
+#include "RawHistogram.hpp"
 #include "EXIFDisplay.hpp"
 #include "ImageCanvas.hpp"
 #include "ToolsWidget.hpp"
@@ -45,18 +45,18 @@ int main(int argc, char** argv)
     QMainWindow mainWin;
     mainWin.statusBar();
 
-    const auto histDock = new QDockWidget(QObject::tr("Raw Histogram"));
-    const auto histogram = new Histogram;
-    const auto histHolder = new QWidget;
-    const auto histLayout = new QVBoxLayout;
-    histHolder->setLayout(histLayout);
-    histLayout->addWidget(histogram);
+    const auto rawHistDock = new QDockWidget(QObject::tr("Raw Histogram"));
+    const auto rawHistogram = new RawHistogram;
+    const auto rawHistHolder = new QWidget;
+    const auto rawHistLayout = new QVBoxLayout;
+    rawHistHolder->setLayout(rawHistLayout);
+    rawHistLayout->addWidget(rawHistogram);
     const auto logCheckBox = new QCheckBox(QObject::tr("logY"));
-    histLayout->addWidget(logCheckBox);
-    histDock->setWidget(histHolder);
-    mainWin.addDockWidget(Qt::RightDockWidgetArea, histDock);
-    logCheckBox->setChecked(histogram->logY());
-    QObject::connect(logCheckBox, &QCheckBox::toggled, histogram, &Histogram::setLogY);
+    rawHistLayout->addWidget(logCheckBox);
+    rawHistDock->setWidget(rawHistHolder);
+    mainWin.addDockWidget(Qt::RightDockWidgetArea, rawHistDock);
+    logCheckBox->setChecked(rawHistogram->logY());
+    QObject::connect(logCheckBox, &QCheckBox::toggled, rawHistogram, &RawHistogram::setLogY);
 
     const auto tools = new ToolsWidget;
     mainWin.addDockWidget(Qt::RightDockWidgetArea, tools);
@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     const auto exif = new EXIFDisplay;
     mainWin.addDockWidget(Qt::RightDockWidgetArea, exif);
 
-    const auto canvas = new ImageCanvas(tools, histogram);
+    const auto canvas = new ImageCanvas(tools, rawHistogram);
     const auto zoomLabel = new QLabel("Zoom: N/A");
     mainWin.statusBar()->addPermanentWidget(zoomLabel);
     QObject::connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     QObject::connect(canvas, &ImageCanvas::loadingFile, [&mainWin](QString const& file)
                      { mainWin.setWindowTitle(formatWindowTitle(file)); });
     QObject::connect(canvas, &ImageCanvas::fullScreenToggleRequested, exif,
-                     [&mainWin, histDock,tools,exif]{toggleFullScreen(mainWin, {histDock,tools,exif});});
+                     [&mainWin, rawHistDock,tools,exif]{toggleFullScreen(mainWin, {rawHistDock,tools,exif});});
     mainWin.setCentralWidget(canvas);
     mainWin.resize(app.primaryScreen()->size()/1.6);
     mainWin.show();

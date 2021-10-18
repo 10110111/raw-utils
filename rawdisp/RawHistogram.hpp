@@ -5,7 +5,7 @@
 #include <QWidget>
 #include <QFutureWatcher>
 
-class Histogram : public QWidget
+class RawHistogram : public QWidget
 {
     std::shared_ptr<LibRaw> libRaw_;
     std::vector<unsigned> red_, green_, blue_;
@@ -24,7 +24,7 @@ class Histogram : public QWidget
     std::atomic<unsigned> lastUpdateIndex_{0};
     QFutureWatcher<std::shared_ptr<Update>> updateWatcher_;
 public:
-    Histogram(QWidget* parent=nullptr);
+    RawHistogram(QWidget* parent=nullptr);
     void compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel);
     void setLogY(bool enable);
     bool logY() const { return logarithmic_; }

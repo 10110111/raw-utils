@@ -15,7 +15,7 @@ pkg_check_modules(exiv2 REQUIRED exiv2)
 
 add_executable(rawdisp
                 rawdisp.cpp
-                Histogram.cpp
+                RawHistogram.cpp
                 EXIFDisplay.cpp
                 ImageCanvas.cpp
                 ToolsWidget.cpp

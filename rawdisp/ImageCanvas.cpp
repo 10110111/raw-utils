@@ -7,7 +7,7 @@
 #include <QMessageBox>
 #include <QtConcurrent>
 #include "timing.hpp"
-#include "Histogram.hpp"
+#include "RawHistogram.hpp"
 #include "ToolsWidget.hpp"
 
 constexpr int OPENGL_MAJOR_VERSION=3;
@@ -46,7 +46,7 @@ int ImageCanvas::loadFile(QString const& filename)
     return LIBRAW_SUCCESS;
 }
 
-ImageCanvas::ImageCanvas(ToolsWidget* tools, Histogram* histogram, QWidget* parent)
+ImageCanvas::ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* parent)
     : QOpenGLWidget(parent)
     , tools_(tools)
     , histogram_(histogram)
