@@ -22,6 +22,7 @@ std::vector<Entry> entriesToShow
     {"Lens model", "Exif.Photo.LensModel"},
     {"Exposure time", "Exif.Photo.ExposureTime"},
     {"Date", "Exif.Photo.DateTimeOriginal"},
+    {"ISO", "Exif.Photo.ISOSpeedRatings"},
 };
 
 }
