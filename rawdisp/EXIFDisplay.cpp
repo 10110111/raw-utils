@@ -1,5 +1,6 @@
 #include "EXIFDisplay.hpp"
 #include <exiv2/exiv2.hpp>
+#include <QDebug>
 #include <QLabel>
 #include <QGridLayout>
 #include <QFontMetrics>
@@ -52,6 +53,7 @@ void EXIFDisplay::loadFile(QString const& filename)
     const auto image = Exiv2::ImageFactory::open(filename.toStdString());
     if(!image.get())
     {
+        qDebug().nospace() << "EXIFDisplay::loadFile(): failed to open file";
         clear();
         return;
     }
@@ -60,6 +62,7 @@ void EXIFDisplay::loadFile(QString const& filename)
     int row=0;
     for(auto& entry : entriesToShow)
     {
+        qDebug().nospace() << "Looking for key \"" << entry.key.c_str() << "\"...";
         if(!entry.value)
         {
             entry.caption = new QLabel(entry.name+":");
@@ -75,6 +78,7 @@ void EXIFDisplay::loadFile(QString const& filename)
         const auto it=exif.findKey(Exiv2::ExifKey(entry.key));
         if(it==exif.end())
         {
+            qDebug().nospace() << "Key \"" << entry.key.c_str() << "\" not found in EXIF data";
             entry.value->setText("");
             continue;
         }
