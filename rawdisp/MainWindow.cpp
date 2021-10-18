@@ -10,6 +10,7 @@
 #include "EXIFDisplay.hpp"
 #include "ImageCanvas.hpp"
 #include "ToolsWidget.hpp"
+#include "FileList.hpp"
 
 namespace
 {
@@ -47,6 +48,10 @@ MainWindow::MainWindow(QString const& filename)
     addDockWidget(Qt::RightDockWidgetArea, exif);
     docks.push_back(exif);
 
+    const auto fileList = new FileList;
+    addDockWidget(Qt::LeftDockWidgetArea, fileList);
+    docks.push_back(fileList);
+
     const auto canvas = new ImageCanvas(tools, rawHistogram);
     const auto zoomLabel = new QLabel("Zoom: N/A");
     statusBar()->addPermanentWidget(zoomLabel);
@@ -54,9 +59,11 @@ MainWindow::MainWindow(QString const& filename)
             { zoomLabel->setText(QString(u8"Zoom: %1%").arg(zoom*100,0,'g',3)); });
     connect(canvas, &ImageCanvas::warning, [this](QString const& w){ statusBar()->showMessage(w); });
     connect(canvas, &ImageCanvas::loadingFile, exif, &EXIFDisplay::loadFile);
+    connect(canvas, &ImageCanvas::loadingFile, fileList, &FileList::listFileSiblings);
     connect(canvas, &ImageCanvas::loadingFile, [this](QString const& file)
             { setWindowTitle(formatWindowTitle(file)); });
     connect(canvas, &ImageCanvas::fullScreenToggleRequested, this, &MainWindow::toggleFullScreen);
+    connect(fileList, &FileList::fileSelected, canvas, &ImageCanvas::openFile);
     setCentralWidget(canvas);
     resize(qApp->primaryScreen()->size()/1.6);
 

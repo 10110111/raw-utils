@@ -21,6 +21,7 @@ add_executable(rawdisp
                 ToolsWidget.cpp
                 Manipulator.cpp
                 MainWindow.cpp
+                FileList.cpp
               )
 if(exiv2_INCLUDE_DIRS)
     include_directories(${exiv2_INCLUDE_DIRS})
