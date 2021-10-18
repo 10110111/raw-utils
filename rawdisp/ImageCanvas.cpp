@@ -22,6 +22,7 @@ static QSurfaceFormat makeFormat()
 
 void ImageCanvas::openFile(QString const& filename)
 {
+    libRaw.reset(new LibRaw);
     fileLoadStatus_ = QtConcurrent::run([this,filename]{return loadFile(filename);});
     connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
     fileLoadWatcher_.setFuture(fileLoadStatus_);
@@ -33,7 +34,6 @@ int ImageCanvas::loadFile(QString const& filename)
     emit loadingFile(filename);
     const auto t0 = currentTime();
 
-    libRaw.reset(new LibRaw);
     libRaw->imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
     libRaw->open_file(filename.toStdString().c_str());
     if(const auto error=libRaw->unpack())
