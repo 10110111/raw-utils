@@ -27,6 +27,7 @@ public:
     Histogram(QWidget* parent=nullptr);
     void compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel);
     void setLogY(bool enable);
+    bool logY() const { return logarithmic_; }
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;

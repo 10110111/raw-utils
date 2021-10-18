@@ -37,8 +37,8 @@ int main(int argc, char** argv)
     histLayout->addWidget(logCheckBox);
     histDock->setWidget(histHolder);
     mainWin.addDockWidget(Qt::RightDockWidgetArea, histDock);
+    logCheckBox->setChecked(histogram->logY());
     QObject::connect(logCheckBox, &QCheckBox::toggled, histogram, &Histogram::setLogY);
-    histogram->setLogY(logCheckBox->isChecked());
 
     const auto tools = new ToolsWidget;
     mainWin.addDockWidget(Qt::RightDockWidgetArea, tools);

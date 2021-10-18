@@ -10,6 +10,7 @@ Histogram::Histogram(QWidget* parent)
 {
     setAttribute(Qt::WA_NoSystemBackground);
     connect(&updateWatcher_, &QFutureWatcher<Update>::finished, this, &Histogram::onComputed);
+    logarithmic_ = QSettings().value("Histogram/logY", false).toBool();
 }
 
 void Histogram::compute(std::shared_ptr<LibRaw> const& libRaw, const float blackLevel)
@@ -209,6 +210,7 @@ void Histogram::resizeEvent(QResizeEvent*const event)
 void Histogram::setLogY(const bool enable)
 {
     logarithmic_=enable;
+    QSettings().setValue("Histogram/logY", enable);
     update();
 }
 
