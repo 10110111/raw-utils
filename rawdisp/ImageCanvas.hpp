@@ -17,8 +17,9 @@ class ImageCanvas : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core
     ToolsWidget* tools_;
     Histogram* histogram_;
 public:
-    ImageCanvas(QString const& filename, ToolsWidget* tools, Histogram* histogram, QWidget* parent=nullptr);
+    ImageCanvas(ToolsWidget* tools, Histogram* histogram, QWidget* parent=nullptr);
     ~ImageCanvas();
+    void openFile(QString const& filename);
 
 signals:
     void warning(QString const&);

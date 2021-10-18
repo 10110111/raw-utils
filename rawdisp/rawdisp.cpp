@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     const auto exif = new EXIFDisplay;
     mainWin.addDockWidget(Qt::RightDockWidgetArea, exif);
 
-    const auto canvas = new ImageCanvas(argv[1] ? argv[1] : "", tools, histogram);
+    const auto canvas = new ImageCanvas(tools, histogram);
     const auto zoomLabel = new QLabel("Zoom: N/A");
     mainWin.statusBar()->addPermanentWidget(zoomLabel);
     QObject::connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
@@ -80,6 +80,8 @@ int main(int argc, char** argv)
     mainWin.show();
 
     canvas->setFocus(Qt::OtherFocusReason);
+    if(argv[1])
+        canvas->openFile(argv[1]);
 
     return app.exec();
 }

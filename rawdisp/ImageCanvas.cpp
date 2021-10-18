@@ -20,6 +20,13 @@ static QSurfaceFormat makeFormat()
     return format;
 }
 
+void ImageCanvas::openFile(QString const& filename)
+{
+    fileLoadStatus_ = QtConcurrent::run([this,filename]{return loadFile(filename);});
+    connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
+    fileLoadWatcher_.setFuture(fileLoadStatus_);
+}
+
 int ImageCanvas::loadFile(QString const& filename)
 {
     emit warning("");
@@ -39,20 +46,13 @@ int ImageCanvas::loadFile(QString const& filename)
     return LIBRAW_SUCCESS;
 }
 
-ImageCanvas::ImageCanvas(QString const& filename, ToolsWidget* tools, Histogram* histogram, QWidget* parent)
+ImageCanvas::ImageCanvas(ToolsWidget* tools, Histogram* histogram, QWidget* parent)
     : QOpenGLWidget(parent)
     , tools_(tools)
     , histogram_(histogram)
 {
     setFormat(makeFormat());
     setFocusPolicy(Qt::StrongFocus);
-
-    if(!filename.isEmpty())
-    {
-        fileLoadStatus_ = QtConcurrent::run([this,filename]{return loadFile(filename);});
-        connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
-        fileLoadWatcher_.setFuture(fileLoadStatus_);
-    }
 
     connect(tools_, &ToolsWidget::settingChanged, this, qOverload<>(&QWidget::update));
 }
@@ -490,6 +490,7 @@ void ImageCanvas::demosaicImage()
 
 void ImageCanvas::resizeGL([[maybe_unused]] const int w, [[maybe_unused]] const int h)
 {
+    if(!libRaw) return;
     emit zoomChanged(scale());
 }
 
