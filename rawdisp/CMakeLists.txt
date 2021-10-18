@@ -20,6 +20,7 @@ add_executable(rawdisp
                 ImageCanvas.cpp
                 ToolsWidget.cpp
                 Manipulator.cpp
+                MainWindow.cpp
               )
 if(exiv2_INCLUDE_DIRS)
     include_directories(${exiv2_INCLUDE_DIRS})
