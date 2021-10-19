@@ -24,22 +24,21 @@ void ImageCanvas::openFile(QString const& filename)
 {
     demosaicedImageReady_=false;
     libRaw.reset(new LibRaw);
-    fileLoadStatus_ = QtConcurrent::run([this,filename]{return loadFile(filename);});
+    emit warning("");
+    emit loadingFile(filename);
+    fileLoadStatus_ = QtConcurrent::run([libRaw=this->libRaw,filename]{return loadFile(libRaw,filename);});
     connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
     fileLoadWatcher_.setFuture(fileLoadStatus_);
 }
 
-int ImageCanvas::loadFile(QString const& filename)
+int ImageCanvas::loadFile(std::shared_ptr<LibRaw> const& libRaw, QString const& filename)
 {
-    emit warning("");
-    emit loadingFile(filename);
     const auto t0 = currentTime();
 
     libRaw->imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
     libRaw->open_file(filename.toStdString().c_str());
     if(const auto error=libRaw->unpack())
         return error;
-    histogram_->compute(libRaw, getBlackLevel());
 
     const auto t1 = currentTime();
     qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
@@ -66,6 +65,7 @@ void ImageCanvas::onFileLoaded()
         return;
     }
 
+    histogram_->compute(libRaw, getBlackLevel());
     update();
 }
 void ImageCanvas::setupBuffers()

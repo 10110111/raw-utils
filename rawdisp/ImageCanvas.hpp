@@ -37,7 +37,7 @@ protected:
     void paintGL() override;
     void paintEvent(QPaintEvent* event) override;
 private:
-    int loadFile(QString const& filename);
+    static int loadFile(std::shared_ptr<LibRaw> const& libRaw, QString const& filename);
     void setupBuffers();
     void setupShaders();
     void demosaicImage();
