@@ -5,6 +5,16 @@
 #include <QVBoxLayout>
 #include <QListWidget>
 
+namespace
+{
+
+enum ItemRole
+{
+    FilePathRole = Qt::UserRole,
+};
+
+}
+
 FileList::FileList(QWidget* parent)
     : QDockWidget(tr("Files"), parent)
 {
@@ -27,10 +37,13 @@ void FileList::listFileSiblings(QString const& filename)
                                      << "*.dcr" << "*.k25" << "*.raf" << "*.mef" << "*.mos" << "*.mrw"
                                      << "*.nef" << "*.orf" << "*.pef" << "*.ptx" << "*.dng" << "*.x3f"
                                      << "*.raw" << "*.r3d" << "*.3fr" << "*.erf" << "*.srw" << "*.rw2");
-    for(const auto& d : dir.entryList(QDir::Files))
+    for(const auto& e : dir.entryInfoList(QDir::Files))
     {
-        list_->addItem(d);
-        if(d==filename)
+        const auto currFileName = e.fileName();
+        const auto item = new QListWidgetItem(currFileName);
+        item->setData(FilePathRole, e.absoluteFilePath());
+        list_->addItem(item);
+        if(currFileName==filename)
         {
             QSignalBlocker b(list_);
             list_->setCurrentItem(list_->item(list_->count()-1));
@@ -42,5 +55,5 @@ void FileList::onItemSelected()
 {
     const auto items = list_->selectedItems();
     if(items.isEmpty()) return;
-    emit fileSelected(items[0]->text());
+    emit fileSelected(items[0]->data(FilePathRole).toString());
 }
