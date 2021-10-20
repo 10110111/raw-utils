@@ -30,9 +30,14 @@ FileList::FileList(QWidget* parent)
 
 void FileList::listFileSiblings(QString const& filename)
 {
-    list_->clear();
     const QFileInfo info(filename);
     auto dir = info.isDir() ? QDir(filename) : info.absoluteDir();
+
+    if(dir.canonicalPath() == dir_)
+        return;
+    dir_ = dir.canonicalPath();
+
+    list_->clear();
     dir.setNameFilters(QStringList{} << "*.arw" << "*.srf" << "*.sr2" << "*.crw" << "*.cr2" << "*.kdc"
                                      << "*.dcr" << "*.k25" << "*.raf" << "*.mef" << "*.mos" << "*.mrw"
                                      << "*.nef" << "*.orf" << "*.pef" << "*.ptx" << "*.dng" << "*.x3f"

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QDockWidget>
 
 class QListWidget;
@@ -15,4 +16,5 @@ private:
     void onItemSelected();
 private:
     QListWidget* list_ = nullptr;
+    QString dir_;
 };
