@@ -39,6 +39,11 @@ EXIFDisplay::EXIFDisplay(QWidget* parent)
 
 void EXIFDisplay::clear()
 {
+    if(errorLabel_)
+    {
+        errorLabel_->deleteLater();
+        errorLabel_ = nullptr;
+    }
     for(auto& entry : entriesToShow)
     {
         entry.caption->deleteLater();
@@ -50,12 +55,13 @@ void EXIFDisplay::clear()
 }
 
 void EXIFDisplay::loadFile(QString const& filename)
+try
 {
+    clear();
     const auto image = Exiv2::ImageFactory::open(filename.toStdString());
     if(!image.get())
     {
         qDebug().nospace() << "EXIFDisplay::loadFile(): failed to open file";
-        clear();
         return;
     }
     image->readMetadata();
@@ -86,4 +92,10 @@ void EXIFDisplay::loadFile(QString const& filename)
         entry.value->setText(QString::fromStdString(it->toString()));
     }
     layout_->setRowStretch(row, 1);
+}
+catch(Exiv2::Error& e)
+{
+    clear();
+    errorLabel_ = new QLabel(tr("exiv2 error: %1").arg(e.what()), 0, 0);
+    layout_->addWidget(errorLabel_, 0,0);
 }

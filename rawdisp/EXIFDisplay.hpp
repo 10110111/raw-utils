@@ -2,6 +2,7 @@
 
 #include <QDockWidget>
 
+class QLabel;
 class QGridLayout;
 class QSpacerItem;
 class EXIFDisplay : public QDockWidget
@@ -17,4 +18,5 @@ private:
 
 private:
     QGridLayout* layout_;
+    QLabel* errorLabel_ = nullptr;
 };
