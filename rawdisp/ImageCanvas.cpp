@@ -36,7 +36,8 @@ int ImageCanvas::loadFile(std::shared_ptr<LibRaw> const& libRaw, QString const& 
     const auto t0 = currentTime();
 
     libRaw->imgdata.params.raw_processing_options &= ~LIBRAW_PROCESSING_CONVERTFLOAT_TO_INT;
-    libRaw->open_file(filename.toStdString().c_str());
+    if(const auto error=libRaw->open_file(filename.toStdString().c_str()))
+        return error;
     if(const auto error=libRaw->unpack())
         return error;
 
