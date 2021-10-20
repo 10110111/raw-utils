@@ -46,11 +46,17 @@ void EXIFDisplay::clear()
     }
     for(auto& entry : entriesToShow)
     {
-        entry.caption->deleteLater();
-        entry.caption = nullptr;
+        if(entry.caption)
+        {
+            entry.caption->deleteLater();
+            entry.caption = nullptr;
+        }
 
-        entry.value->deleteLater();
-        entry.value = nullptr;
+        if(entry.value)
+        {
+            entry.value->deleteLater();
+            entry.value = nullptr;
+        }
     }
 }
 
