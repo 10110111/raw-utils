@@ -2,6 +2,7 @@
 #include <exiv2/exiv2.hpp>
 #include <QDebug>
 #include <QLabel>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QFontMetrics>
 
@@ -64,6 +65,10 @@ void EXIFDisplay::loadFile(QString const& filename)
 try
 {
     clear();
+
+    if(QFileInfo(filename).isDir())
+        return;
+
     const auto image = Exiv2::ImageFactory::open(filename.toStdString());
     if(!image.get())
     {

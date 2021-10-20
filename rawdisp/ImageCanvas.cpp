@@ -23,9 +23,14 @@ static QSurfaceFormat makeFormat()
 void ImageCanvas::openFile(QString const& filename)
 {
     demosaicedImageReady_=false;
-    libRaw.reset(new LibRaw);
     emit warning("");
     emit loadingFile(filename);
+    libRaw.reset();
+
+    if(QFileInfo(filename).isDir())
+        return;
+
+    libRaw.reset(new LibRaw);
     fileLoadStatus_ = QtConcurrent::run([libRaw=this->libRaw,filename]{return loadFile(libRaw,filename);});
     connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
     fileLoadWatcher_.setFuture(fileLoadStatus_);
