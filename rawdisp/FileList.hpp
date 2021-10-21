@@ -10,10 +10,13 @@ class FileList : public QDockWidget
 public:
     FileList(QWidget* parent = nullptr);
     void listFileSiblings(QString const& filename);
+    void selectNextFile();
+    void selectPrevFile();
 signals:
     void fileSelected(QString const& filename);
 private:
     void onItemSelected();
+    int currentItemRow() const;
 private:
     QListWidget* list_ = nullptr;
     QString dir_;

@@ -503,18 +503,28 @@ void ImageCanvas::resizeGL([[maybe_unused]] const int w, [[maybe_unused]] const 
 
 void ImageCanvas::wheelEvent(QWheelEvent*const event)
 {
-    if((event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier)) != Qt::ControlModifier)
+    if(event->modifiers() & (Qt::ShiftModifier|Qt::AltModifier))
         return;
 
-    const double steps = event->angleDelta().y() / 120.;
-    const double oldScale = scale();
-    if(!scaleSteps_)
-        scaleSteps_ = scaleToSteps(oldScale);
-    scaleSteps_ = *scaleSteps_ + steps/2;
-    const double newScale = scale();
-    imageShift_ = (event->pos() - QPoint(width(),height())/2)*(1 - newScale/oldScale) + newScale/oldScale*imageShift_;
-    update();
-    emit zoomChanged(newScale);
+    if(event->modifiers() & Qt::ControlModifier)
+    {
+        const double steps = event->angleDelta().y() / 120.;
+        const double oldScale = scale();
+        if(!scaleSteps_)
+            scaleSteps_ = scaleToSteps(oldScale);
+        scaleSteps_ = *scaleSteps_ + steps/2;
+        const double newScale = scale();
+        imageShift_ = (event->pos() - QPoint(width(),height())/2)*(1 - newScale/oldScale) + newScale/oldScale*imageShift_;
+        update();
+        emit zoomChanged(newScale);
+    }
+    else
+    {
+        if(event->angleDelta().y() < 0)
+            emit nextFileRequested();
+        else
+            emit prevFileRequested();
+    }
 }
 
 void ImageCanvas::mouseMoveEvent(QMouseEvent*const event)
@@ -559,6 +569,12 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
     case Qt::Key_F11:
         emit fullScreenToggleRequested();
         return;
+    case Qt::Key_PageDown:
+        emit nextFileRequested();
+        break;
+    case Qt::Key_PageUp:
+        emit prevFileRequested();
+        break;
     }
     update();
 }

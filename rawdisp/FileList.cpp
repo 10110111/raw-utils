@@ -62,3 +62,38 @@ void FileList::onItemSelected()
     if(items.isEmpty()) return;
     emit fileSelected(items[0]->data(FilePathRole).toString());
 }
+
+void FileList::selectNextFile()
+{
+    const int currRow = currentItemRow();
+    if(currRow < 0)
+    {
+        if(list_->count() == 0)
+            return;
+        list_->setCurrentItem(list_->item(0));
+    }
+    if(currRow+1 < list_->count())
+        list_->setCurrentItem(list_->item(currRow+1));
+}
+
+void FileList::selectPrevFile()
+{
+    const int currRow = currentItemRow();
+    if(currRow < 0)
+    {
+        if(list_->count() == 0)
+            return;
+        list_->setCurrentItem(list_->item(0));
+    }
+    if(currRow-1 >= 0)
+        list_->setCurrentItem(list_->item(currRow-1));
+}
+
+int FileList::currentItemRow() const
+{
+    const auto currItem = list_->currentItem();
+    for(int row = 0; row < list_->count(); ++row)
+        if(list_->item(row) == currItem)
+            return row;
+    return -1;
+}
