@@ -23,5 +23,10 @@ ToolsWidget::ToolsWidget(QWidget* parent)
 
     exposureCompensation_ = addManipulator(layout, this, tr(u8"\u0394e&xposure"), -5, 5, 0, 2);
 
+    previewCheckBox_ = new QCheckBox(tr("Show embedded preview"));
+    previewCheckBox_->setEnabled(false);
+    connect(previewCheckBox_, &QCheckBox::stateChanged, this, &ToolsWidget::settingChanged);
+    layout->addWidget(previewCheckBox_);
+
     layout->addStretch();
 }

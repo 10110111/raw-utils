@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QCheckBox>
 #include <QDockWidget>
 #include "Manipulator.hpp"
 
@@ -11,10 +12,15 @@ public:
     ToolsWidget(QWidget* parent=nullptr);
 
     double exposureCompensation() const { return exposureCompensation_->value(); }
+    bool previewMode() const { return previewCheckBox_->isChecked(); }
+
+    void enablePreview() { previewCheckBox_->setEnabled(true); }
+    void disablePreview() { previewCheckBox_->setEnabled(false); }
 
 signals:
     void settingChanged();
 
 private:
     Manipulator* exposureCompensation_=nullptr;
+    QCheckBox* previewCheckBox_=nullptr;
 };

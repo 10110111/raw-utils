@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QMessageBox>
+#include <QImageReader>
 #include <QtConcurrent>
 #include "timing.hpp"
 #include "RawHistogram.hpp"
@@ -30,6 +31,11 @@ void ImageCanvas::openFile(QString const& filename)
     if(QFileInfo(filename).isDir())
         return;
 
+    preview_ = {};
+    previewLoadStatus_ = QtConcurrent::run([filename]{return loadPreview(filename);});
+    connect(&previewLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onPreviewLoaded);
+    previewLoadWatcher_.setFuture(previewLoadStatus_);
+
     libRaw.reset(new LibRaw);
     fileLoadStatus_ = QtConcurrent::run([libRaw=this->libRaw,filename]{return loadFile(libRaw,filename);});
     connect(&fileLoadWatcher_, &QFutureWatcher<int>::finished, this, &ImageCanvas::onFileLoaded);
@@ -50,6 +56,41 @@ int ImageCanvas::loadFile(std::shared_ptr<LibRaw> const& libRaw, QString const& 
     qDebug().nospace() << "File loaded in " << double(t1-t0) << " seconds";
 
     return LIBRAW_SUCCESS;
+}
+
+QImage ImageCanvas::loadPreview(QString const& filename)
+{
+    const auto t0 = currentTime();
+    LibRaw libRaw;
+    if(const auto error=libRaw.open_file(filename.toStdString().c_str()))
+    {
+        qDebug().nospace() << "loadPreview() failed to open file: " << libraw_strerror(error);
+        return {};
+    }
+    if(const auto error = libRaw.unpack_thumb())
+    {
+        qDebug().nospace() << "loadPreview() failed to unpack thumbnail: " << libraw_strerror(error);
+        return {};
+    }
+    if(libRaw.imgdata.thumbnail.tformat != LIBRAW_THUMBNAIL_JPEG)
+    {
+        qDebug().nospace() << "Preview format is not JPEG, instead it's " << libRaw.imgdata.thumbnail.tformat;
+        return {};
+    }
+
+    auto arr = QByteArray::fromRawData(libRaw.imgdata.thumbnail.thumb, libRaw.imgdata.thumbnail.tlength);
+    QBuffer buf(&arr);
+    QImageReader reader(&buf);
+    const auto img = reader.read();
+    const auto t1 = currentTime();
+
+    if(img.isNull())
+        qDebug().nospace() << "Failed to load preview: " << reader.errorString();
+    else
+        qDebug().nospace() << "Preview loaded in " << double(t1-t0) << " seconds";
+
+
+    return img;
 }
 
 ImageCanvas::ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* parent)
@@ -74,6 +115,17 @@ void ImageCanvas::onFileLoaded()
     histogram_->compute(libRaw, getBlackLevel());
     update();
 }
+
+void ImageCanvas::onPreviewLoaded()
+{
+    preview_ = previewLoadStatus_.result();
+    if(preview_.isNull())
+        emit previewNotAvailable();
+    else
+        emit previewLoaded();
+    update();
+}
+
 void ImageCanvas::setupBuffers()
 {
     if(!vao_)
@@ -626,6 +678,15 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
         p.fillRect(rect(), palette().window());
         p.setPen(palette().windowText().color());
         p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("(nothing to display)"));
+        return;
+    }
+    if(tools_->previewMode() && !preview_.isNull())
+    {
+        QPainter p(this);
+        p.fillRect(rect(), Qt::black);
+        const auto centeredPos = (size() - preview_.size()*scale())/2;
+        const QRect centeredRect(QPoint(centeredPos.width(),centeredPos.height()), preview_.size()*scale());
+        p.drawImage(QRect(centeredRect.topLeft()+imageShift_, centeredRect.size()), preview_, preview_.rect());
         return;
     }
     if(!fileLoadStatus_.isFinished())

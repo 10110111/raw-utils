@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <libraw/libraw.h>
+#include <QImage>
 #include <QFuture>
 #include <QOpenGLWidget>
 #include <QFutureWatcher>
@@ -28,6 +29,8 @@ signals:
     void fullScreenToggleRequested();
     void nextFileRequested();
     void prevFileRequested();
+    void previewLoaded();
+    void previewNotAvailable();
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -40,11 +43,13 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 private:
     static int loadFile(std::shared_ptr<LibRaw> const& libRaw, QString const& filename);
+    static QImage loadPreview(QString const& filename);
     void setupBuffers();
     void setupShaders();
     void demosaicImage();
     double scale() const;
     void onFileLoaded();
+    void onPreviewLoaded();
     double scaleToSteps(const double scale) const;
     float getBlackLevel();
 
@@ -60,6 +65,9 @@ private:
     std::optional<double> scaleSteps_;
     QFuture<int> fileLoadStatus_;
     QFutureWatcher<int> fileLoadWatcher_;
+    QFuture<QImage> previewLoadStatus_;
+    QFutureWatcher<QImage> previewLoadWatcher_;
+    QImage preview_;
     bool demosaicedImageReady_=false;
     bool demosaicMessageShown_=false;
     bool dragging_=false;

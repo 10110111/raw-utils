@@ -65,6 +65,8 @@ MainWindow::MainWindow(QString const& filename)
     connect(canvas, &ImageCanvas::fullScreenToggleRequested, this, &MainWindow::toggleFullScreen);
     connect(canvas, &ImageCanvas::nextFileRequested, fileList, &FileList::selectNextFile);
     connect(canvas, &ImageCanvas::prevFileRequested, fileList, &FileList::selectPrevFile);
+    connect(canvas, &ImageCanvas::previewLoaded, this, [tools]{ tools->enablePreview(); });
+    connect(canvas, &ImageCanvas::previewNotAvailable, this, [tools]{ tools->disablePreview(); });
     connect(fileList, &FileList::fileSelected, canvas, &ImageCanvas::openFile);
     setCentralWidget(canvas);
     resize(qApp->primaryScreen()->size()/1.6);
