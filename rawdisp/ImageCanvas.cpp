@@ -628,6 +628,12 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
     case Qt::Key_PageUp:
         emit prevFileRequested();
         break;
+    case Qt::Key_Home:
+        emit firstFileRequested();
+        break;
+    case Qt::Key_End:
+        emit lastFileRequested();
+        break;
     }
     update();
 }

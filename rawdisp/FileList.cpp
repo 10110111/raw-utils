@@ -89,6 +89,20 @@ void FileList::selectPrevFile()
         list_->setCurrentItem(list_->item(currRow-1));
 }
 
+void FileList::selectFirstFile()
+{
+    if(list_->count() == 0)
+        return;
+    list_->setCurrentItem(list_->item(0));
+}
+
+void FileList::selectLastFile()
+{
+    if(list_->count() == 0)
+        return;
+    list_->setCurrentItem(list_->item(list_->count()-1));
+}
+
 int FileList::currentItemRow() const
 {
     const auto currItem = list_->currentItem();

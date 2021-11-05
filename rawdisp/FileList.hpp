@@ -12,6 +12,8 @@ public:
     void listFileSiblings(QString const& filename);
     void selectNextFile();
     void selectPrevFile();
+    void selectFirstFile();
+    void selectLastFile();
 signals:
     void fileSelected(QString const& filename);
 private:

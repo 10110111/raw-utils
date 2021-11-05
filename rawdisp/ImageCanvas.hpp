@@ -29,6 +29,8 @@ signals:
     void fullScreenToggleRequested();
     void nextFileRequested();
     void prevFileRequested();
+    void firstFileRequested();
+    void lastFileRequested();
     void previewLoaded();
     void previewNotAvailable();
 protected:
