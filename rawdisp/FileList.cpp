@@ -30,13 +30,27 @@ FileList::FileList(QWidget* parent)
 
 void FileList::listFileSiblings(QString const& filename)
 {
+    listFileSiblings(filename, false);
+}
+
+void FileList::listFileSiblings(QString const& filename, const bool forceReload)
+{
     const QFileInfo info(filename);
     auto dir = info.isDir() ? QDir(filename) : info.absoluteDir();
 
-    if(dir.canonicalPath() == dir_)
+    if(!forceReload && dir.canonicalPath() == dir_)
         return;
     dir_ = dir.canonicalPath();
+    watcher_.reset(new QFileSystemWatcher);
+    watcher_->addPath(dir_);
+    connect(watcher_.get(), &QFileSystemWatcher::directoryChanged, this,
+            [this,filename]
+            {
+                const auto currFileName = currentFileName();
+                listFileSiblings(currFileName.isEmpty() ? filename : currFileName, true);
+            });
 
+    const auto fileNameToSelect = QFileInfo(filename).fileName();
     list_->clear();
     dir.setNameFilters(QStringList{} << "*.arw" << "*.srf" << "*.sr2" << "*.crw" << "*.cr2" << "*.kdc"
                                      << "*.dcr" << "*.k25" << "*.raf" << "*.mef" << "*.mos" << "*.mrw"
@@ -48,7 +62,7 @@ void FileList::listFileSiblings(QString const& filename)
         const auto item = new QListWidgetItem(currFileName);
         item->setData(FilePathRole, e.absoluteFilePath());
         list_->addItem(item);
-        if(currFileName==filename)
+        if(currFileName==fileNameToSelect)
         {
             QSignalBlocker b(list_);
             list_->setCurrentItem(list_->item(list_->count()-1));
@@ -58,9 +72,9 @@ void FileList::listFileSiblings(QString const& filename)
 
 void FileList::onItemSelected()
 {
-    const auto items = list_->selectedItems();
-    if(items.isEmpty()) return;
-    emit fileSelected(items[0]->data(FilePathRole).toString());
+    const auto filename = currentFileName();
+    if(!filename.isEmpty())
+        emit fileSelected(currentFileName());
 }
 
 void FileList::selectNextFile()
@@ -110,4 +124,11 @@ int FileList::currentItemRow() const
         if(list_->item(row) == currItem)
             return row;
     return -1;
+}
+
+QString FileList::currentFileName() const
+{
+    const auto items = list_->selectedItems();
+    if(items.isEmpty()) return {};
+    return items[0]->data(FilePathRole).toString();
 }

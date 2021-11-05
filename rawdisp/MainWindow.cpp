@@ -59,7 +59,7 @@ MainWindow::MainWindow(QString const& filename)
             { zoomLabel->setText(QString(u8"Zoom: %1%").arg(zoom*100,0,'g',3)); });
     connect(canvas, &ImageCanvas::warning, [this](QString const& w){ statusBar()->showMessage(w); });
     connect(canvas, &ImageCanvas::loadingFile, exif, &EXIFDisplay::loadFile);
-    connect(canvas, &ImageCanvas::loadingFile, fileList, &FileList::listFileSiblings);
+    connect(canvas, &ImageCanvas::loadingFile, fileList, qOverload<QString const&>(&FileList::listFileSiblings));
     connect(canvas, &ImageCanvas::loadingFile, [this](QString const& file)
             { setWindowTitle(formatWindowTitle(file)); });
     connect(canvas, &ImageCanvas::fullScreenToggleRequested, this, &MainWindow::toggleFullScreen);
