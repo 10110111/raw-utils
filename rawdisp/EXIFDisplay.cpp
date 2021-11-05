@@ -78,6 +78,12 @@ try
     }
     image->readMetadata();
     const auto& exif = image->exifData();
+
+#if 0
+    for(const auto& d : exif)
+        qDebug().nospace() << "Key: " << d.key().c_str();
+#endif
+
     int row=0;
     for(auto& entry : entriesToShow)
     {
