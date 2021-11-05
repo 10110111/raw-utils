@@ -24,6 +24,7 @@ std::vector<Entry> entriesToShow
     {"Exposure time", "Exif.Photo.ExposureTime"},
     {"Date", "Exif.Photo.DateTimeOriginal"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
+    {"Expo bias", "Exif.Photo.ExposureBiasValue"},
 };
 
 }
