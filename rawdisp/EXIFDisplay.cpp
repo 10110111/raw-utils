@@ -1,4 +1,5 @@
 #include "EXIFDisplay.hpp"
+#include <cmath>
 #include <exiv2/exiv2.hpp>
 #include <QDebug>
 #include <QLabel>
@@ -9,10 +10,38 @@
 namespace
 {
 
+QString formatDefault(Exiv2::Exifdatum const& datum)
+{
+    return QString::fromStdString(datum.toString());
+}
+
+QString formatExposureTime(Exiv2::Exifdatum const& datum)
+{
+    if(datum.typeId() != Exiv2::unsignedRational)
+        return formatDefault(datum);
+
+    const auto [num,denom] = datum.toRational();
+    const auto frac = double(num)/denom;
+    if(frac > 60)
+    {
+        const int min = std::floor(frac/60);
+        const int sec = std::lround(frac-60*min);
+        return QString("%1m%2s").arg(min).arg(sec);
+    }
+    if(denom==1)
+        return QString("%1 s").arg(num);
+    if(num==1)
+        return QString("1/%1 s").arg(denom);
+    if(frac < 10)
+        return QString("%1 s").arg(frac, 0, 'g', 3);
+    return QString("%1 s").arg(frac, 0, 'g', 4);
+}
+
 struct Entry
 {
     QString name;
     std::string key;
+    QString (*format)(Exiv2::Exifdatum const& datum) = formatDefault;
     QLabel* caption=nullptr;
     QLabel* value=nullptr;
 };
@@ -21,7 +50,7 @@ std::vector<Entry> entriesToShow
 {
     {"Camera", "Exif.Image.Model"},
     {"Lens model", "Exif.Photo.LensModel"},
-    {"Exposure time", "Exif.Photo.ExposureTime"},
+    {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
     {"Date", "Exif.Photo.DateTimeOriginal"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
     {"Expo bias", "Exif.Photo.ExposureBiasValue"},
@@ -107,7 +136,7 @@ try
             entry.value->setText("");
             continue;
         }
-        entry.value->setText(QString::fromStdString(it->toString()));
+        entry.value->setText(entry.format(*it));
     }
     layout_->setRowStretch(row, 1);
 }
