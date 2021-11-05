@@ -13,6 +13,7 @@ public:
 
     double exposureCompensation() const { return exposureCompensation_->value(); }
     bool previewMode() const { return previewCheckBox_->isChecked(); }
+    bool clippedHighlightsMarkingEnabled() const { return clippedHighlightsMarking_->isChecked(); }
 
     void enablePreview() { previewCheckBox_->setEnabled(true); }
     void disablePreview() { previewCheckBox_->setEnabled(false); }
@@ -23,4 +24,5 @@ signals:
 private:
     Manipulator* exposureCompensation_=nullptr;
     QCheckBox* previewCheckBox_=nullptr;
+    QCheckBox* clippedHighlightsMarking_=nullptr;
 };

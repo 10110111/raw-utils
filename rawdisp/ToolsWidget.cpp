@@ -28,5 +28,9 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     connect(previewCheckBox_, &QCheckBox::stateChanged, this, &ToolsWidget::settingChanged);
     layout->addWidget(previewCheckBox_);
 
+    clippedHighlightsMarking_ = new QCheckBox(tr("Mark clipped highlights"));
+    connect(clippedHighlightsMarking_, &QCheckBox::stateChanged, this, &ToolsWidget::settingChanged);
+    layout->addWidget(clippedHighlightsMarking_);
+
     layout->addStretch();
 }

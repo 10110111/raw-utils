@@ -338,6 +338,7 @@ void main()
 
 uniform sampler2D sRGBLinearImage;
 uniform float exposureCompensationCoef;
+uniform bool showClippedHighlights;
 in vec2 texCoord;
 out vec4 color;
 
@@ -350,6 +351,11 @@ void main()
 {
     const vec3 linearSRGB = texture(sRGBLinearImage, texCoord).rgb;
     color = vec4(sRGBTransferFunction(linearSRGB*exposureCompensationCoef), 1);
+    if(showClippedHighlights)
+    {
+        if(color.r>1||color.g>1||color.b>1)
+            color=vec4(0,0,0,1);
+    }
 }
 )";
         if(!displayProgram_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
@@ -670,6 +676,7 @@ void ImageCanvas::paintGL()
     displayProgram_.setUniformValue("shift", QVector2D(imageShift_.x(),imageShift_.y()));
     displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
     displayProgram_.setUniformValue("imageSize", QVector2D(libRaw->imgdata.sizes.width, libRaw->imgdata.sizes.height));
+    displayProgram_.setUniformValue("showClippedHighlights", tools_->clippedHighlightsMarkingEnabled());
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
