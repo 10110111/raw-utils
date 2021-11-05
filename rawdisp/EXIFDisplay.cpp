@@ -21,6 +21,8 @@ QString formatExposureTime(Exiv2::Exifdatum const& datum)
         return formatDefault(datum);
 
     const auto [num,denom] = datum.toRational();
+    if(denom==0)
+        return formatDefault(datum);
     const auto frac = double(num)/denom;
     if(frac > 60)
     {
@@ -35,6 +37,30 @@ QString formatExposureTime(Exiv2::Exifdatum const& datum)
     if(frac < 10)
         return QString("%1 s").arg(frac, 0, 'g', 3);
     return QString("%1 s").arg(frac, 0, 'g', 4);
+}
+
+QString formatExposureBias(Exiv2::Exifdatum const& datum)
+{
+    if(datum.typeId() != Exiv2::signedRational)
+        return formatDefault(datum);
+    auto [num,denom] = datum.toRational();
+    if(denom==0)
+        return formatDefault(datum);
+
+    const char sign = double(num)/denom<0 ? '-' : '+';
+    num = std::abs(num);
+    denom = std::abs(denom);
+    if(num==0 || denom==1)
+        return QString("%1%2").arg(sign).arg(num);
+    const auto whole = num/denom;
+    const auto smallNum = num-whole*denom;
+    if(smallNum==1 && denom==3)
+        return QString(u8"%1%2\u2153").arg(sign).arg(whole);
+    if(smallNum==2 && denom==3)
+        return QString(u8"%1%2\u2154").arg(sign).arg(whole);
+    if(smallNum==1 && denom==2)
+        return QString(u8"%1%2\u00bd").arg(sign).arg(whole);
+    return QString(u8"%1%2 %3/%4").arg(sign).arg(whole).arg(smallNum).arg(denom);
 }
 
 struct Entry
@@ -53,7 +79,7 @@ std::vector<Entry> entriesToShow
     {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
     {"Date", "Exif.Photo.DateTimeOriginal"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
-    {"Expo bias", "Exif.Photo.ExposureBiasValue"},
+    {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
 };
 
 }
