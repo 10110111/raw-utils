@@ -63,6 +63,20 @@ QString formatExposureBias(Exiv2::Exifdatum const& datum)
     return QString(u8"%1%2 %3/%4").arg(sign).arg(whole).arg(smallNum).arg(denom);
 }
 
+QString formatAperture(Exiv2::Exifdatum const& datum)
+{
+    if(datum.typeId() != Exiv2::unsignedRational)
+        return formatDefault(datum);
+    auto [num,denom] = datum.toRational();
+    if(denom==0)
+        return formatDefault(datum);
+
+    const auto apex = double(num)/denom;
+    const auto fNum = std::pow(2., apex/2);
+
+    return QString("f/%1").arg(fNum, 0, 'g', 2);
+}
+
 struct Entry
 {
     QString name;
@@ -80,6 +94,7 @@ std::vector<Entry> entriesToShow
     {"Date", "Exif.Photo.DateTimeOriginal"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
     {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
+    {"Aperture", "Exif.Photo.ApertureValue", &formatAperture},
 };
 
 }
