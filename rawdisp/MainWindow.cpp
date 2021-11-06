@@ -1,11 +1,14 @@
 #include "MainWindow.hpp"
 #include <QScreen>
+#include <QSpinBox>
+#include <QKeyEvent>
 #include <QFileInfo>
 #include <QCheckBox>
 #include <QStatusBar>
 #include <QHBoxLayout>
 #include <QDockWidget>
 #include <QApplication>
+#include <QDoubleSpinBox>
 #include "RawHistogram.hpp"
 #include "EXIFDisplay.hpp"
 #include "ImageCanvas.hpp"
@@ -52,7 +55,7 @@ MainWindow::MainWindow(QString const& filename)
     addDockWidget(Qt::LeftDockWidgetArea, fileList);
     docks.push_back(fileList);
 
-    const auto canvas = new ImageCanvas(tools, rawHistogram);
+    canvas = new ImageCanvas(tools, rawHistogram);
     const auto zoomLabel = new QLabel("Zoom: N/A");
     statusBar()->addPermanentWidget(zoomLabel);
     connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
@@ -76,6 +79,8 @@ MainWindow::MainWindow(QString const& filename)
     canvas->setFocus(Qt::OtherFocusReason);
     if(!filename.isEmpty())
         canvas->openFile(filename);
+
+    qApp->installEventFilter(this);
 }
 
 void MainWindow::toggleFullScreen()
@@ -94,4 +99,33 @@ void MainWindow::toggleFullScreen()
         for(const auto dock : docks)
             dock->show();
     }
+}
+
+bool MainWindow::eventFilter(QObject*const obj, QEvent*const event)
+{
+    if(obj == canvas)
+        return QObject::eventFilter(obj, event);
+    if(qobject_cast<QWidget*>(obj))
+        return QObject::eventFilter(obj, event);
+    if(event->type() != QEvent::KeyPress && event->type() != QEvent::KeyRelease)
+        return QObject::eventFilter(obj, event);
+
+    const auto ke = static_cast<QKeyEvent*>(event);
+    if(ke->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier))
+        return QObject::eventFilter(obj, event);
+
+    const auto focusedWidget = qApp->focusWidget();
+    const bool focusedWidgetIsSpinBox = qobject_cast<QSpinBox*>(focusedWidget) || qobject_cast<QDoubleSpinBox*>(focusedWidget);
+
+    const auto key = ke->key();
+    const bool isAlpha = Qt::Key_A <= key && key <= Qt::Key_Z;
+    const bool isFunc  = Qt::Key_F1 <= key && key <= Qt::Key_F35;
+    const bool isNavig = key==Qt::Key_PageUp || key==Qt::Key_PageDown || key==Qt::Key_Home || key==Qt::Key_End;
+    if(isAlpha || isFunc || (isNavig && !focusedWidgetIsSpinBox))
+    {
+        qApp->sendEvent(canvas, event);
+        return true;
+    }
+
+    return QObject::eventFilter(obj, event);
 }
