@@ -71,8 +71,7 @@ QString formatAperture(Exiv2::Exifdatum const& datum)
     if(denom==0)
         return formatDefault(datum);
 
-    const auto apex = double(num)/denom;
-    const auto fNum = std::pow(2., apex/2);
+    const auto fNum = double(num)/denom;
 
     return QString("f/%1").arg(fNum, 0, 'g', 2);
 }
@@ -92,7 +91,7 @@ std::vector<Entry> entriesToShow
     {"Camera", "Exif.Image.Model"},
     {"Lens model", "Exif.Photo.LensModel"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
-    {"Aperture", "Exif.Photo.ApertureValue", &formatAperture},
+    {"Aperture", "Exif.Photo.FNumber", &formatAperture},
     {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
     {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
 };
