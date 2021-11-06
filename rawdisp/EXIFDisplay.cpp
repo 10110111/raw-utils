@@ -88,13 +88,13 @@ struct Entry
 
 std::vector<Entry> entriesToShow
 {
+    {"Date", "Exif.Photo.DateTimeOriginal"},
     {"Camera", "Exif.Image.Model"},
     {"Lens model", "Exif.Photo.LensModel"},
-    {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
-    {"Date", "Exif.Photo.DateTimeOriginal"},
     {"ISO", "Exif.Photo.ISOSpeedRatings"},
-    {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
     {"Aperture", "Exif.Photo.ApertureValue", &formatAperture},
+    {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
+    {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
 };
 
 }
