@@ -171,7 +171,7 @@ uniform float blackLevel, whiteLevel;
 uniform float marginLeft, marginRight, marginTop, marginBottom;
 uniform vec3 whiteBalanceCoefs;
 uniform mat3 cam2srgb;
-out vec3 linearSRGB;
+out vec4 linearSRGB; // w-component is 1 if any raw component is saturated
 
 float samplePhotoSite(const vec2 pos, const vec2 offset)
 {
@@ -301,8 +301,9 @@ void main()
     }
     const vec3 rawRGB = RED_FIRST ? vec3(subpixelFromTopLeftCF,green,subpixelFromBottomRightCF) :
                                     vec3(subpixelFromBottomRightCF,green,subpixelFromTopLeftCF);
+    const bool highlightClipped = rawRGB.r >= whiteLevel || rawRGB.g >= whiteLevel || rawRGB.b >= whiteLevel;
     const vec3 balancedRGB = (rawRGB-blackLevel)/(whiteLevel-blackLevel)*whiteBalanceCoefs;
-    linearSRGB = cam2srgb*balancedRGB;
+    linearSRGB = vec4(cam2srgb*balancedRGB, float(highlightClipped));
 }
 )";
         if(!demosaicProgram_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
@@ -349,12 +350,16 @@ vec3 sRGBTransferFunction(const vec3 c)
 
 void main()
 {
-    const vec3 linearSRGB = texture(sRGBLinearImage, texCoord).rgb;
-    color = vec4(sRGBTransferFunction(linearSRGB*exposureCompensationCoef), 1);
+    const vec4 linearSRGB = texture(sRGBLinearImage, texCoord);
+    color = vec4(sRGBTransferFunction(linearSRGB.rgb*exposureCompensationCoef), 1);
     if(showClippedHighlights)
     {
-        if(color.r>1||color.g>1||color.b>1)
-            color=vec4(0,0,0,1);
+        if(linearSRGB.w>0)
+        {
+            color = mod(gl_FragCoord.x-gl_FragCoord.y-1, 6.)>2 ? vec4(0,0,0,1) : vec4(1,1,1,1);
+        }
+        else if(color.r>1 || color.g>1 || color.b>1)
+            color=vec4(1,0,1,1);
     }
 }
 )";
@@ -482,7 +487,7 @@ void ImageCanvas::demosaicImage()
         }
 
         glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
 
         glFinish();
         const auto t1 = currentTime();
