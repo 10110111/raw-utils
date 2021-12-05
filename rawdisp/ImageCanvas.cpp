@@ -693,8 +693,8 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
     if(!libRaw)
     {
         QPainter p(this);
-        p.fillRect(rect(), palette().window());
-        p.setPen(palette().windowText().color());
+        p.fillRect(rect(), Qt::black);
+        p.setPen(Qt::gray);
         p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("(nothing to display)"));
         return;
     }
@@ -710,8 +710,8 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
     if(!fileLoadStatus_.isFinished())
     {
         QPainter p(this);
-        p.fillRect(rect(), palette().window());
-        p.setPen(palette().windowText().color());
+        p.fillRect(rect(), Qt::black);
+        p.setPen(Qt::gray);
         p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Loading file..."));
         emit zoomChanged(scale());
         return;
@@ -719,8 +719,8 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
     if(!demosaicMessageShown_)
     {
         QPainter p(this);
-        p.fillRect(rect(), palette().window());
-        p.setPen(palette().windowText().color());
+        p.fillRect(rect(), Qt::black);
+        p.setPen(Qt::gray);
         p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Demosaicing image..."));
         demosaicMessageShown_ = true;
         // And repaint, but avoid possible recursive call of paintEvent
