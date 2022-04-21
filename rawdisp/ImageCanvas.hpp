@@ -33,11 +33,14 @@ signals:
     void lastFileRequested();
     void previewLoaded();
     void previewNotAvailable();
+    void cursorPositionUpdated(double x, double y);
+    void cursorLeft();
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void leaveEvent(QEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void initializeGL() override;
     void resizeGL(int w, int h) override;

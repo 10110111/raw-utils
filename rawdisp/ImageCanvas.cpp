@@ -100,6 +100,7 @@ ImageCanvas::ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* p
 {
     setFormat(makeFormat());
     setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
 
     connect(tools_, &ToolsWidget::settingChanged, this, qOverload<>(&QWidget::update));
 }
@@ -592,23 +593,48 @@ void ImageCanvas::wheelEvent(QWheelEvent*const event)
 
 void ImageCanvas::mouseMoveEvent(QMouseEvent*const event)
 {
+    if(!libRaw) return;
+
     if(dragging_)
     {
         imageShift_ += event->pos() - dragStartPos_;
         dragStartPos_ = event->pos();
         update();
     }
+    else
+    {
+        const QSizeF canvasSize = size();
+        const QSizeF imageSize(libRaw->imgdata.sizes.width, libRaw->imgdata.sizes.height);
+        const QPointF cursor = event->pos();
+        const double scale = this->scale();
+
+        const auto centeredPos = (canvasSize - imageSize*scale)/2;
+        const QRectF centeredRect{QPointF(centeredPos.width(),centeredPos.height()), imageSize*scale};
+        const QRectF imageRect{centeredRect.topLeft()+imageShift_, centeredRect.size()};
+        const auto p = (cursor-imageRect.topLeft())/scale;
+
+        emit cursorPositionUpdated(p.x(),p.y());
+    }
 }
 
 void ImageCanvas::mousePressEvent(QMouseEvent*const event)
 {
+    if(!libRaw) return;
+
     dragStartPos_ = event->pos();
     dragging_ = true;
 }
 
 void ImageCanvas::mouseReleaseEvent(QMouseEvent*)
 {
+    if(!libRaw) return;
+
     dragging_ = false;
+}
+
+void ImageCanvas::leaveEvent(QEvent*)
+{
+    emit cursorLeft();
 }
 
 void ImageCanvas::keyPressEvent(QKeyEvent*const event)

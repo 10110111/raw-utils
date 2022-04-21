@@ -56,6 +56,8 @@ MainWindow::MainWindow(QString const& filename)
     docks.push_back(fileList);
 
     canvas = new ImageCanvas(tools, rawHistogram);
+    const auto cursorLabel = new QLabel("");
+    statusBar()->addPermanentWidget(cursorLabel);
     const auto zoomLabel = new QLabel("Zoom: N/A");
     statusBar()->addPermanentWidget(zoomLabel);
     connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
@@ -72,6 +74,9 @@ MainWindow::MainWindow(QString const& filename)
     connect(canvas, &ImageCanvas::lastFileRequested, fileList, &FileList::selectLastFile);
     connect(canvas, &ImageCanvas::previewLoaded, this, [tools]{ tools->enablePreview(); });
     connect(canvas, &ImageCanvas::previewNotAvailable, this, [tools]{ tools->disablePreview(); });
+    connect(canvas, &ImageCanvas::cursorPositionUpdated, this,
+            [cursorLabel](const double x, const double y){ cursorLabel->setText(QString("x,y:(%1, %2)").arg(x,0,'f',1).arg(y,0,'f',1)); });
+    connect(canvas, &ImageCanvas::cursorLeft, this, [cursorLabel]{ cursorLabel->setText(""); });
     connect(fileList, &FileList::fileSelected, canvas, &ImageCanvas::openFile);
     setCentralWidget(canvas);
     resize(qApp->primaryScreen()->size()/1.6);
