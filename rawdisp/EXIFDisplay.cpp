@@ -156,18 +156,17 @@ try
     int row=0;
     for(auto& entry : entriesToShow)
     {
-        if(!entry.value)
-        {
-            entry.caption = new QLabel(entry.name+":");
-            entry.caption->setAlignment(Qt::AlignRight);
-            entry.value = new QLabel;
-            entry.value->setTextInteractionFlags(Qt::TextSelectableByMouse|Qt::TextSelectableByKeyboard);
-            layout_->addWidget(entry.caption, row, 0);
-            layout_->addWidget(entry.value  , row, 1);
-            layout_->setRowStretch(row, 0);
-            layout_->setColumnStretch(1, 1);
-            ++row;
-        }
+        assert(!entry.value);
+        entry.caption = new QLabel(entry.name+":");
+        entry.caption->setAlignment(Qt::AlignRight);
+        entry.value = new QLabel;
+        entry.value->setTextInteractionFlags(Qt::TextSelectableByMouse|Qt::TextSelectableByKeyboard);
+        layout_->addWidget(entry.caption, row, 0);
+        layout_->addWidget(entry.value  , row, 1);
+        layout_->setRowStretch(row, 0);
+        layout_->setColumnStretch(1, 1);
+        ++row;
+
         for(const auto& key : entry.keys)
         {
             qDebug().nospace() << "Looking for key \"" << key.c_str() << "\"...";
