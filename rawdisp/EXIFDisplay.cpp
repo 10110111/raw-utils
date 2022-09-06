@@ -79,7 +79,7 @@ QString formatAperture(Exiv2::Exifdatum const& datum)
 struct Entry
 {
     QString name;
-    std::string key;
+    std::vector<std::string> keys;
     QString (*format)(Exiv2::Exifdatum const& datum) = formatDefault;
     QLabel* caption=nullptr;
     QLabel* value=nullptr;
@@ -87,13 +87,13 @@ struct Entry
 
 std::vector<Entry> entriesToShow
 {
-    {"Date", "Exif.Photo.DateTimeOriginal"},
-    {"Camera", "Exif.Image.Model"},
-    {"Lens model", "Exif.Photo.LensModel"},
-    {"ISO", "Exif.Photo.ISOSpeedRatings"},
-    {"Aperture", "Exif.Photo.FNumber", &formatAperture},
-    {"Exposure time", "Exif.Photo.ExposureTime", &formatExposureTime},
-    {"Expo bias", "Exif.Photo.ExposureBiasValue", &formatExposureBias},
+    {"Date", {"Exif.Photo.DateTimeOriginal"}},
+    {"Camera", {"Exif.Image.Model"}},
+    {"Lens model", {"Exif.Photo.LensModel"}},
+    {"ISO", {"Exif.Photo.ISOSpeedRatings", "Exif.Image.ISOSpeedRatings"}},
+    {"Aperture", {"Exif.Photo.FNumber", "Exif.Image.FNumber"}, &formatAperture},
+    {"Exposure time", {"Exif.Photo.ExposureTime", "Exif.Image.ExposureTime"}, &formatExposureTime},
+    {"Expo bias", {"Exif.Photo.ExposureBiasValue"}, &formatExposureBias},
 };
 
 }
@@ -156,7 +156,6 @@ try
     int row=0;
     for(auto& entry : entriesToShow)
     {
-        qDebug().nospace() << "Looking for key \"" << entry.key.c_str() << "\"...";
         if(!entry.value)
         {
             entry.caption = new QLabel(entry.name+":");
@@ -169,14 +168,17 @@ try
             layout_->setColumnStretch(1, 1);
             ++row;
         }
-        const auto it=exif.findKey(Exiv2::ExifKey(entry.key));
-        if(it==exif.end())
+        for(const auto& key : entry.keys)
         {
-            qDebug().nospace() << "Key \"" << entry.key.c_str() << "\" not found in EXIF data";
-            entry.value->setText("");
-            continue;
+            qDebug().nospace() << "Looking for key \"" << key.c_str() << "\"...";
+            const auto it=exif.findKey(Exiv2::ExifKey(key));
+            if(it!=exif.end())
+            {
+                entry.value->setText(entry.format(*it));
+                break; // This key contains a value, no need to look in others for current entry
+            }
+            qDebug().nospace() << "Key \"" << key.c_str() << "\" not found in EXIF data";
         }
-        entry.value->setText(entry.format(*it));
     }
     layout_->setRowStretch(row, 1);
 }
