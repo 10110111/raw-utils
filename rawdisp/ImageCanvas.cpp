@@ -172,11 +172,14 @@ uniform float blackLevel, whiteLevel;
 uniform float marginLeft, marginRight, marginTop, marginBottom;
 uniform vec3 whiteBalanceCoefs;
 uniform mat3 cam2srgb;
+uniform bool verticalInversion;
 out vec4 linearSRGB; // w-component is 1 if any raw component is saturated
 
 float samplePhotoSite(const vec2 pos, const vec2 offset)
 {
-    const vec2 texCoord = (pos+0.5+offset)/textureSize(image,0).xy;
+    vec2 texCoord = (pos+0.5+offset)/textureSize(image,0).xy;
+    if(verticalInversion)
+        texCoord.t = 1 - texCoord.t;
     return texture(image, texCoord).r;
 }
 
@@ -341,6 +344,7 @@ void main()
 uniform sampler2D sRGBLinearImage;
 uniform float exposureCompensationCoef;
 uniform bool showClippedHighlights;
+uniform bool demosaicedImageInverted;
 in vec2 texCoord;
 out vec4 color;
 
@@ -351,7 +355,10 @@ vec3 sRGBTransferFunction(const vec3 c)
 
 void main()
 {
-    const vec4 linearSRGB = texture(sRGBLinearImage, texCoord);
+    vec2 texcoordToUse = texCoord;
+    if(demosaicedImageInverted)
+        texcoordToUse.t = 1 - texcoordToUse.t;
+    const vec4 linearSRGB = texture(sRGBLinearImage, texcoordToUse);
     color = vec4(sRGBTransferFunction(linearSRGB.rgb*exposureCompensationCoef), 1);
     if(showClippedHighlights)
     {
@@ -507,16 +514,12 @@ void ImageCanvas::demosaicImage()
     demosaicProgram_.bind();
     demosaicProgram_.setUniformValue("image", 0);
     {
-        if(libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)] != 'G' || libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)] != 'G')
-        {
-            const auto col00 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
-            const auto col01 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)];
-            const auto col10 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)];
-            const auto col11 = libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,1)];
-            emit warning(tr("Warning: unexpected CFA pattern (%1%2/%3%4), colors will be wrong!").arg(col00).arg(col01).arg(col10).arg(col11));
-        }
+        demosaicedImageInverted_ = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,1)] != 'G' ||
+                                   libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)] != 'G';
+        demosaicProgram_.setUniformValue("verticalInversion", demosaicedImageInverted_);
 
-        const char topLeftCF = libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
+        const char topLeftCF = demosaicedImageInverted_ ? libRaw->imgdata.idata.cdesc[libRaw->COLOR(1,0)]
+                                                        : libRaw->imgdata.idata.cdesc[libRaw->COLOR(0,0)];
         if(topLeftCF == 'R')
             demosaicProgram_.setUniformValue("RED_FIRST", true);
         else
@@ -709,6 +712,7 @@ void ImageCanvas::paintGL()
     displayProgram_.setUniformValue("imageSize", QVector2D(libRaw->imgdata.sizes.width, libRaw->imgdata.sizes.height));
     displayProgram_.setUniformValue("showClippedHighlights", tools_->clippedHighlightsMarkingEnabled());
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
+    displayProgram_.setUniformValue("demosaicedImageInverted", demosaicedImageInverted_);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);

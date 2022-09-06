@@ -73,6 +73,7 @@ private:
     QFuture<QImage> previewLoadStatus_;
     QFutureWatcher<QImage> previewLoadWatcher_;
     QImage preview_;
+    bool demosaicedImageInverted_=false;
     bool demosaicedImageReady_=false;
     bool demosaicMessageShown_=false;
     bool dragging_=false;
