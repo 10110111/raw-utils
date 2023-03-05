@@ -24,6 +24,7 @@ static QSurfaceFormat makeFormat()
 void ImageCanvas::openFile(QString const& filename)
 {
     demosaicedImageReady_=false;
+    demosaicMessageShown_=false;
     emit warning("");
     emit loadingFile(filename);
     libRaw.reset();
