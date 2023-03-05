@@ -63,6 +63,8 @@ MainWindow::MainWindow(QString const& filename)
     connect(canvas, &ImageCanvas::zoomChanged, [zoomLabel](const double zoom)
             { zoomLabel->setText(QString(u8"Zoom: %1%").arg(zoom*100,0,'g',3)); });
     connect(canvas, &ImageCanvas::warning, [this](QString const& w){ statusBar()->showMessage(w); });
+    connect(canvas, &ImageCanvas::loadingFile, [this]{ setCursor(Qt::WaitCursor); });
+    connect(canvas, &ImageCanvas::fileLoadingFinished, [this]{ unsetCursor(); });
     connect(canvas, &ImageCanvas::loadingFile, exif, &EXIFDisplay::loadFile);
     connect(canvas, &ImageCanvas::loadingFile, fileList, qOverload<QString const&>(&FileList::listFileSiblings));
     connect(canvas, &ImageCanvas::loadingFile, [this](QString const& file)

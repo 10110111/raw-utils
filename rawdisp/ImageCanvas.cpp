@@ -24,13 +24,16 @@ static QSurfaceFormat makeFormat()
 void ImageCanvas::openFile(QString const& filename)
 {
     demosaicedImageReady_=false;
-    demosaicMessageShown_=false;
+    demosaicStarted_=false;
     emit warning("");
     emit loadingFile(filename);
     libRaw.reset();
 
     if(QFileInfo(filename).isDir())
+    {
+        emit fileLoadingFinished();
         return;
+    }
 
     preview_ = {};
     previewLoadStatus_ = QtConcurrent::run([filename]{return loadPreview(filename);});
@@ -111,6 +114,8 @@ void ImageCanvas::onFileLoaded()
     if(const auto error = fileLoadStatus_.result())
     {
         QMessageBox::critical(this, tr("Error loading file"), tr("Failed to unpack file: %1").arg(libraw_strerror(error)));
+        oldDemosaicedImagePresent_ = false;
+        emit fileLoadingFinished();
         return;
     }
 
@@ -563,6 +568,8 @@ void ImageCanvas::demosaicImage()
     glBindFramebuffer(GL_FRAMEBUFFER, origFBO);
 
     demosaicedImageReady_ = true;
+    oldDemosaicedImagePresent_ = true;
+    emit fileLoadingFinished();
 }
 
 void ImageCanvas::resizeGL([[maybe_unused]] const int w, [[maybe_unused]] const int h)
@@ -696,12 +703,8 @@ double ImageCanvas::scaleToSteps(const double scale) const
     return std::log2(scale) * 2;
 }
 
-void ImageCanvas::paintGL()
+void ImageCanvas::renderLastValidImage()
 {
-    if(!isVisible()) return;
-    if(!demosaicedImageReady_)
-        demosaicImage();
-
     glViewport(0, 0, width(), height());
     glBindVertexArray(vao_);
 
@@ -719,6 +722,14 @@ void ImageCanvas::paintGL()
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+void ImageCanvas::paintGL()
+{
+    if(!isVisible()) return;
+    if(!demosaicedImageReady_)
+        demosaicImage();
+    renderLastValidImage();
 }
 
 void ImageCanvas::paintEvent(QPaintEvent*const event)
@@ -742,20 +753,34 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
     }
     if(!fileLoadStatus_.isFinished())
     {
-        QPainter p(this);
-        p.fillRect(rect(), Qt::black);
-        p.setPen(Qt::gray);
-        p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Loading file..."));
+        if(oldDemosaicedImagePresent_)
+        {
+            renderLastValidImage();
+        }
+        else
+        {
+            QPainter p(this);
+            p.fillRect(rect(), Qt::black);
+            p.setPen(Qt::gray);
+            p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Loading file..."));
+        }
         emit zoomChanged(scale());
         return;
     }
-    if(!demosaicMessageShown_)
+    if(!demosaicStarted_)
     {
-        QPainter p(this);
-        p.fillRect(rect(), Qt::black);
-        p.setPen(Qt::gray);
-        p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Demosaicing image..."));
-        demosaicMessageShown_ = true;
+        if(oldDemosaicedImagePresent_)
+        {
+            renderLastValidImage();
+        }
+        else
+        {
+            QPainter p(this);
+            p.fillRect(rect(), Qt::black);
+            p.setPen(Qt::gray);
+            p.drawText(rect(), Qt::AlignHCenter|Qt::AlignVCenter, tr("Demosaicing image..."));
+        }
+        demosaicStarted_ = true;
         // And repaint, but avoid possible recursive call of paintEvent
         QTimer::singleShot(0, [this]{update();});
         return;

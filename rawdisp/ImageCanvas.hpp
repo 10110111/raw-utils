@@ -31,6 +31,7 @@ signals:
     void prevFileRequested();
     void firstFileRequested();
     void lastFileRequested();
+    void fileLoadingFinished(); // regardless whether successful or not
     void previewLoaded();
     void previewNotAvailable();
     void cursorPositionUpdated(double x, double y);
@@ -55,6 +56,7 @@ private:
     double scale() const;
     void onFileLoaded();
     void onPreviewLoaded();
+    void renderLastValidImage();
     double scaleToSteps(const double scale) const;
     float getBlackLevel();
 
@@ -73,8 +75,9 @@ private:
     QFuture<QImage> previewLoadStatus_;
     QFutureWatcher<QImage> previewLoadWatcher_;
     QImage preview_;
+    bool oldDemosaicedImagePresent_=false;
     bool demosaicedImageInverted_=false;
     bool demosaicedImageReady_=false;
-    bool demosaicMessageShown_=false;
+    bool demosaicStarted_=false;
     bool dragging_=false;
 };
