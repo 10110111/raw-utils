@@ -745,6 +745,7 @@ void ImageCanvas::paintEvent(QPaintEvent*const event)
     if(tools_->previewMode() && !preview_.isNull())
     {
         QPainter p(this);
+        p.setRenderHint(QPainter::SmoothPixmapTransform);
         p.fillRect(rect(), Qt::black);
         const auto centeredPos = (size() - preview_.size()*scale())/2;
         const QRect centeredRect(QPoint(centeredPos.width(),centeredPos.height()), preview_.size()*scale());
