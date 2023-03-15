@@ -76,6 +76,20 @@ QString formatAperture(Exiv2::Exifdatum const& datum)
     return QString("f/%1").arg(fNum, 0, 'g', 2);
 }
 
+QString formatTimeZone(Exiv2::Exifdatum const& datum)
+{
+    if(datum.typeId() != Exiv2::signedLong)
+        return formatDefault(datum);
+
+    const auto minutes = datum.toLong();
+    const auto absMin = std::abs(minutes);
+    const auto hour = absMin/60;
+    const auto min  = absMin%60;
+    return QString("UTC%1%2:%3").arg(minutes<0 ? '-' : '+')
+                                .arg(hour, 2, 10, QChar('0'))
+                                .arg(min, 2, 10, QChar('0'));
+}
+
 struct Entry
 {
     QString name;
@@ -88,6 +102,7 @@ struct Entry
 std::vector<Entry> entriesToShow
 {
     {"Date", {"Exif.Photo.DateTimeOriginal"}},
+    {"Time zone", {"Exif.CanonTi.TimeZone"}, &formatTimeZone},
     {"Camera", {"Exif.Image.Model"}},
     {"Lens model", {"Exif.Photo.LensModel"}},
     {"ISO", {"Exif.Photo.ISOSpeedRatings", "Exif.Image.ISOSpeedRatings"}},
