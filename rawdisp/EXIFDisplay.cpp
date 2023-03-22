@@ -23,7 +23,7 @@ QString formatExposureTime(Exiv2::Exifdatum const& datum)
     const auto [num,denom] = datum.toRational();
     if(denom==0)
         return formatDefault(datum);
-    const auto frac = double(num)/denom;
+    const auto frac = double(unsigned(num))/unsigned(denom);
     if(frac > 60)
     {
         const int min = std::floor(frac/60);
