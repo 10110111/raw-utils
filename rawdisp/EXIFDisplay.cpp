@@ -90,6 +90,16 @@ QString formatTimeZone(Exiv2::Exifdatum const& datum)
                                 .arg(min, 2, 10, QChar('0'));
 }
 
+QString formatFocalLength(Exiv2::Exifdatum const& datum)
+{
+    if(datum.typeId() != Exiv2::unsignedRational)
+        return formatDefault(datum);
+    auto [num,denom] = datum.toRational();
+    if(denom==0)
+        return formatDefault(datum);
+    return QString(u8"%1 mm").arg(num/denom);
+}
+
 struct Entry
 {
     QString name;
@@ -105,6 +115,7 @@ std::vector<Entry> entriesToShow
     {"Time zone", {"Exif.CanonTi.TimeZone"}, &formatTimeZone},
     {"Camera", {"Exif.Image.Model"}},
     {"Lens model", {"Exif.Photo.LensModel"}},
+    {"Focal length", {"Exif.Photo.FocalLength"}, &formatFocalLength},
     {"ISO", {"Exif.Photo.ISOSpeedRatings", "Exif.Image.ISOSpeedRatings"}},
     {"Aperture", {"Exif.Photo.FNumber", "Exif.Image.FNumber"}, &formatAperture},
     {"Exposure time", {"Exif.Photo.ExposureTime", "Exif.Image.ExposureTime"}, &formatExposureTime},
