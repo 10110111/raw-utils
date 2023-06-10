@@ -11,8 +11,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 find_package(Qt5 5.9 REQUIRED Core OpenGL Concurrent)
 include(FindPkgConfig)
-pkg_check_modules(exiv2 REQUIRED exiv2)
-pkg_check_modules(libraw REQUIRED libraw)
+pkg_check_modules(exiv2 REQUIRED IMPORTED_TARGET exiv2)
+pkg_check_modules(libraw REQUIRED IMPORTED_TARGET libraw)
 
 add_executable(rawdisp
                 rawdisp.cpp
@@ -24,10 +24,8 @@ add_executable(rawdisp
                 MainWindow.cpp
                 FileList.cpp
               )
-if(exiv2_INCLUDE_DIRS)
-    include_directories(${exiv2_INCLUDE_DIRS})
-endif()
-if(libraw_INCLUDE_DIRS)
-    include_directories(${libraw_INCLUDE_DIRS})
-endif()
+include_directories(PkgConfig::exiv2)
+link_directories(PkgConfig::exiv2)
+include_directories(PkgConfig::libraw)
+link_directories(PkgConfig::libraw)
 target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent GL ${exiv2_LIBRARIES} ${libraw_LIBRARIES})
