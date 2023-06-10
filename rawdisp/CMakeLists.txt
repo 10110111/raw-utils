@@ -24,8 +24,4 @@ add_executable(rawdisp
                 MainWindow.cpp
                 FileList.cpp
               )
-include_directories(PkgConfig::exiv2)
-link_directories(PkgConfig::exiv2)
-include_directories(PkgConfig::libraw)
-link_directories(PkgConfig::libraw)
-target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent GL ${exiv2_LIBRARIES} ${libraw_LIBRARIES})
+target_link_libraries(rawdisp Qt5::Core Qt5::OpenGL Qt5::Concurrent GL PkgConfig::exiv2 PkgConfig::libraw)
