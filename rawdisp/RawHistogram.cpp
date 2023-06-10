@@ -22,6 +22,15 @@ void RawHistogram::compute(std::shared_ptr<LibRaw> const& libRaw, const float bl
 
 void RawHistogram::compute()
 {
+    if(libRaw_.use_count() == 1)
+    {
+        // We are the last owner of this instance of LibRaw, so it's no longer relevant
+        libRaw_.reset();
+        red_.clear();
+        green_.clear();
+        blue_.clear();
+        qDebug() << "Cleared histogram data";
+    }
     if(!libRaw_) return;
 
     red_.clear();
