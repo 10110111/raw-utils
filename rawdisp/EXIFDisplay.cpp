@@ -113,7 +113,7 @@ struct Entry
 
 std::vector<Entry> entriesToShow
 {
-    {"Date", {"Exif.Photo.DateTimeOriginal"}},
+    {"Date", {"Exif.Photo.DateTimeOriginal", "Exif.Image.DateTimeOriginal"}},
     {"Time zone", {"Exif.CanonTi.TimeZone"}, &formatTimeZone},
     {"Camera", {"Exif.Image.Model"}},
     {"Lens model", {"Exif.Photo.LensModel"}},
