@@ -117,7 +117,7 @@ std::vector<Entry> entriesToShow
     {"Time zone", {"Exif.CanonTi.TimeZone"}, &formatTimeZone},
     {"Camera", {"Exif.Image.Model"}},
     {"Lens model", {"Exif.Photo.LensModel"}},
-    {"Focal length", {"Exif.Photo.FocalLength"}, &formatFocalLength},
+    {"Focal length", {"Exif.Photo.FocalLength", "Exif.Image.FocalLength"}, &formatFocalLength},
     {"ISO", {"Exif.Photo.ISOSpeedRatings", "Exif.Image.ISOSpeedRatings"}},
     {"Aperture", {"Exif.Photo.FNumber", "Exif.Image.FNumber"}, &formatAperture},
     {"Exposure time", {"Exif.Photo.ExposureTime", "Exif.Image.ExposureTime"}, &formatExposureTime},
