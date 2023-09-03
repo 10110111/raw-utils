@@ -97,6 +97,8 @@ QString formatFocalLength(Exiv2::Exifdatum const& datum)
     auto [num,denom] = datum.toRational();
     if(denom==0)
         return formatDefault(datum);
+    if(double(num)/denom < 10)
+        return QString(u8"%1 mm").arg(double(num)/denom);
     return QString(u8"%1 mm").arg(num/denom);
 }
 
