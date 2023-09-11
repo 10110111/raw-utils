@@ -22,6 +22,7 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     setWidget(mainWidget);
 
     exposureCompensation_ = addManipulator(layout, this, tr(u8"\u0394e&xposure"), -5, 5, 0, 2);
+    rotationAngle_ = addManipulator(layout, this, tr("&Rotation"), -180, 180, 0, 2, u8"\u00b0");
 
     previewCheckBox_ = new QCheckBox(tr("Show embedded preview"));
     previewCheckBox_->setEnabled(false);

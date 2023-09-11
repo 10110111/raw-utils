@@ -336,11 +336,13 @@ uniform float scale;
 uniform vec2 shift;
 uniform vec2 viewportSize;
 uniform vec2 imageSize;
+uniform float rotationAngle;
 out vec2 texCoord;
 void main()
 {
-    const vec2 scaleRelativeToViewport = (viewportSize/imageSize/scale);
-    texCoord = vertex.xy*scaleRelativeToViewport/2+0.5 + vec2(-shift.x,shift.y)/viewportSize*scaleRelativeToViewport;
+    const mat2 rot = mat2(cos(rotationAngle), sin(rotationAngle),
+                         -sin(rotationAngle), cos(rotationAngle));
+    texCoord = rot*(viewportSize*vertex.xy/2 + vec2(-shift.x,shift.y))/(imageSize*scale) + 0.5;
     gl_Position=vec4(vertex,1);
 }
 )";
@@ -720,6 +722,7 @@ void ImageCanvas::renderLastValidImage()
     displayProgram_.setUniformValue("shift", QVector2D(imageShift_.x(),imageShift_.y()));
     displayProgram_.setUniformValue("viewportSize", QVector2D(width(),height()));
     displayProgram_.setUniformValue("imageSize", QVector2D(libRaw->imgdata.sizes.width, libRaw->imgdata.sizes.height));
+    displayProgram_.setUniformValue("rotationAngle", float(M_PI/180*tools_->rotationAngle()));
     displayProgram_.setUniformValue("showClippedHighlights", tools_->clippedHighlightsMarkingEnabled());
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
     displayProgram_.setUniformValue("demosaicedImageInverted", demosaicedImageInverted_);

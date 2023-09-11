@@ -12,6 +12,7 @@ public:
     ToolsWidget(QWidget* parent=nullptr);
 
     double exposureCompensation() const { return exposureCompensation_->value(); }
+    double rotationAngle() const { return rotationAngle_->value(); }
     bool previewMode() const { return previewCheckBox_->isChecked(); }
     bool clippedHighlightsMarkingEnabled() const { return clippedHighlightsMarking_->isChecked(); }
 
@@ -23,6 +24,7 @@ signals:
 
 private:
     Manipulator* exposureCompensation_=nullptr;
+    Manipulator* rotationAngle_=nullptr;
     QCheckBox* previewCheckBox_=nullptr;
     QCheckBox* clippedHighlightsMarking_=nullptr;
 };
