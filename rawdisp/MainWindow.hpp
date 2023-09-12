@@ -13,4 +13,5 @@ private:
 private:
     std::vector<QDockWidget*> docks;
     ImageCanvas* canvas=nullptr;
+    bool wasMaximizedBeforeFullScreen = false;
 };

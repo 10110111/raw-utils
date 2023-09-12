@@ -94,6 +94,7 @@ void MainWindow::toggleFullScreen()
 {
     if(statusBar()->isVisible())
     {
+        wasMaximizedBeforeFullScreen = isMaximized();
         statusBar()->hide();
         showFullScreen();
         for(const auto dock : docks)
@@ -102,7 +103,15 @@ void MainWindow::toggleFullScreen()
     else
     {
         statusBar()->show();
-        showNormal();
+        if(wasMaximizedBeforeFullScreen)
+        {
+            showNormal(); // undo full screen first: direct switch to maximized doesn't maximize
+            showMaximized();
+        }
+        else
+        {
+            showNormal();
+        }
         for(const auto dock : docks)
             dock->show();
     }
