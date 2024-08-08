@@ -33,5 +33,10 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     connect(clippedHighlightsMarking_, &QCheckBox::stateChanged, this, &ToolsWidget::settingChanged);
     layout->addWidget(clippedHighlightsMarking_);
 
+    mustTransformToSRGB_ = new QCheckBox(tr("Transform from camera to sRGB"));
+    mustTransformToSRGB_->setChecked(true);
+    connect(mustTransformToSRGB_, &QCheckBox::stateChanged, this, &ToolsWidget::srgbTransformationToggled);
+    layout->addWidget(mustTransformToSRGB_);
+
     layout->addStretch();
 }

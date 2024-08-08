@@ -75,6 +75,7 @@ private:
     QFuture<QImage> previewLoadStatus_;
     QFutureWatcher<QImage> previewLoadWatcher_;
     QImage preview_;
+    QString currentFile_;
     bool oldDemosaicedImagePresent_=false;
     bool demosaicedImageInverted_=false;
     bool demosaicedImageReady_=false;

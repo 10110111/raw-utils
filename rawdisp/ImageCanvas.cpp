@@ -23,6 +23,7 @@ static QSurfaceFormat makeFormat()
 
 void ImageCanvas::openFile(QString const& filename)
 {
+    currentFile_ = filename;
     demosaicedImageReady_=false;
     demosaicStarted_=false;
     emit warning("");
@@ -111,6 +112,7 @@ ImageCanvas::ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* p
     setMouseTracking(true);
 
     connect(tools_, &ToolsWidget::settingChanged, this, qOverload<>(&QWidget::update));
+    connect(tools_, &ToolsWidget::srgbTransformationToggled, this, [this]{openFile(currentFile_);});
 }
 
 void ImageCanvas::onFileLoaded()
@@ -554,7 +556,8 @@ void ImageCanvas::demosaicImage()
         const float cam2srgb[9] = {camrgb[0][0], camrgb[0][1], camrgb[0][2],
                                    camrgb[1][0], camrgb[1][1], camrgb[1][2],
                                    camrgb[2][0], camrgb[2][1], camrgb[2][2]};
-        demosaicProgram_.setUniformValue("cam2srgb", QMatrix3x3(cam2srgb));
+        demosaicProgram_.setUniformValue("cam2srgb",
+                                         tools_->mustTransformToSRGB() ? QMatrix3x3(cam2srgb) : QMatrix3x3{});
     }
     demosaicProgram_.setUniformValue("marginLeft", float(sizes.left_margin));
     demosaicProgram_.setUniformValue("marginTop", float(sizes.top_margin));
