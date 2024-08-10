@@ -119,6 +119,9 @@ void MainWindow::toggleFullScreen()
 
 bool MainWindow::eventFilter(QObject*const obj, QEvent*const event)
 {
+    if(!isActiveWindow())
+        return QObject::eventFilter(obj, event);
+
     if(obj == canvas)
         return QObject::eventFilter(obj, event);
     if(qobject_cast<QWidget*>(obj))
