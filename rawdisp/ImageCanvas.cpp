@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QMessageBox>
+#include <QFileDialog>
 #include <QImageReader>
 #include <QtConcurrent>
 #include "timing.hpp"
@@ -19,6 +20,12 @@ static QSurfaceFormat makeFormat()
     format.setVersion(OPENGL_MAJOR_VERSION,OPENGL_MINOR_VERSION);
     format.setProfile(QSurfaceFormat::CoreProfile);
     return format;
+}
+
+static double sRGBTransferFunction(const double c)
+{
+    return c > 0.0031308 ? 1.055*std::pow(c, 1/2.4)-0.055
+                         : 12.92*c;
 }
 
 void ImageCanvas::openFile(QString const& filename)
@@ -744,38 +751,76 @@ void ImageCanvas::leaveEvent(QEvent*)
 
 void ImageCanvas::keyPressEvent(QKeyEvent*const event)
 {
-    if(event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier))
-        return;
+    const auto mods = event->modifiers() & (Qt::ControlModifier|Qt::ShiftModifier|Qt::AltModifier);
     switch(event->key())
     {
     case Qt::Key_Z:
+        if(mods) return;
         scaleSteps_ = 0.;
         emit zoomChanged(scale());
         break;
     case Qt::Key_X:
+        if(mods) return;
         scaleSteps_.reset();
         imageShift_ = QPoint(0,0);
         emit zoomChanged(scale());
         break;
     case Qt::Key_C:
+        if(mods) return;
         imageShift_ = QPoint(0,0);
         break;
     case Qt::Key_F:
     case Qt::Key_F11:
+        if(mods) return;
         emit fullScreenToggleRequested();
         return;
     case Qt::Key_PageDown:
+        if(mods) return;
         emit nextFileRequested();
         break;
     case Qt::Key_PageUp:
+        if(mods) return;
         emit prevFileRequested();
         break;
     case Qt::Key_Home:
+        if(mods) return;
         emit firstFileRequested();
         break;
     case Qt::Key_End:
+        if(mods) return;
         emit lastFileRequested();
         break;
+    case Qt::Key_S:
+        if(mods == Qt::ControlModifier && demosaicedImageReady_)
+        {
+            const auto path = QFileDialog::getSaveFileName(this, "Save file as...", {}, "PNG images (*.png)");
+            if(path.isEmpty()) return;
+
+            makeCurrent();
+            glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
+
+            const int W = libRaw->imgdata.sizes.width;
+            const int H = libRaw->imgdata.sizes.height;
+            QImage img(W, H, QImage::Format_RGBA8888);
+            std::vector<GLfloat> data(4*W*H);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, data.data());
+
+            const auto coef = std::pow(10., tools_->exposureCompensation());
+            const auto p = img.bits();
+            const int stride = img.bytesPerLine() / sizeof p[0];
+            for(int j = 0; j < H; ++j)
+            {
+                for(int i = 0; i < W; ++i)
+                {
+                    p[(H-1-j)*stride + 4*i + 0] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+0]*coef, 0., 1.));
+                    p[(H-1-j)*stride + 4*i + 1] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+1]*coef, 0., 1.));
+                    p[(H-1-j)*stride + 4*i + 2] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+2]*coef, 0., 1.));
+                    p[(H-1-j)*stride + 4*i + 3] = 255;
+                }
+            }
+            if(!img.save(path))
+                QMessageBox::critical(this, "Error saving image", "Failed to save the image");
+        }
     }
     update();
 }
