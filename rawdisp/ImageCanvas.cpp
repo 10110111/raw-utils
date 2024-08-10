@@ -112,7 +112,7 @@ ImageCanvas::ImageCanvas(ToolsWidget* tools, RawHistogram* histogram, QWidget* p
     setMouseTracking(true);
 
     connect(tools_, &ToolsWidget::settingChanged, this, qOverload<>(&QWidget::update));
-    connect(tools_, &ToolsWidget::srgbTransformationToggled, this, [this]{openFile(currentFile_);});
+    connect(tools_, &ToolsWidget::demosaicSettingChanged, this, [this]{openFile(currentFile_);});
 }
 
 void ImageCanvas::onFileLoaded()
@@ -173,6 +173,60 @@ void main()
     gl_Position=vec4(vertex,1);
 }
 )";
+        if(!denoiseProgram_.addShaderFromSourceCode(QOpenGLShader::Vertex, vertSrc))
+           QMessageBox::critical(this, tr("Shader compile failure"),
+                                 tr("Failed to compile %1:\n%2").arg("denoise vertex shader").arg(denoiseProgram_.log()));
+        const char*const fragSrc = 1+R"(
+#version 330
+#extension GL_ARB_shading_language_420pack : require
+uniform sampler2D image;
+uniform float whiteLevel;
+out vec4 color;
+
+float samplePhotoSite(const vec2 pos, const vec2 offset)
+{
+    vec2 texCoord = (pos+0.5+offset)/textureSize(image,0).xy;
+    return texture(image, texCoord).r;
+}
+
+void main()
+{
+    const vec2 pos = vec2(gl_FragCoord.x, gl_FragCoord.y)-0.5;
+
+    const float vtl = samplePhotoSite(pos, vec2(-1,-1));
+    const float vtc = samplePhotoSite(pos, vec2( 0,-1));
+    const float vtr = samplePhotoSite(pos, vec2(+1,-1));
+    const float vcl = samplePhotoSite(pos, vec2(-1, 0));
+    const float vcc = samplePhotoSite(pos, vec2( 0, 0));
+    const float vcr = samplePhotoSite(pos, vec2(+1, 0));
+    const float vbl = samplePhotoSite(pos, vec2(-1,+1));
+    const float vbc = samplePhotoSite(pos, vec2( 0,+1));
+    const float vbr = samplePhotoSite(pos, vec2(+1,+1));
+
+    float c = vcc;
+    if(vcc > 0.1*whiteLevel && vcc > 1.5*max(vtl,max(vtc,max(vtr,max(vcr,max(vbr,max(vbc,max(vbl,vcl))))))))
+    {
+        c = (vtl+vtc+vtr+vcr+vbr+vbc+vbl+vcl)/8;
+    }
+    color = vec4(c);
+}
+)";
+        if(!denoiseProgram_.addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc))
+           QMessageBox::critical(this, tr("Error compiling shader"),
+                                 tr("Failed to compile %1:\n%2").arg("denoise fragment shader").arg(denoiseProgram_.log()));
+        if(!denoiseProgram_.link())
+            throw QMessageBox::critical(this, tr("Error linking shader program"),
+                                        tr("Failed to link %1:\n%2").arg("denoise shader program").arg(denoiseProgram_.log()));
+    }
+    {
+        const char*const vertSrc = 1+R"(
+#version 330
+in vec3 vertex;
+void main()
+{
+    gl_Position=vec4(vertex,1);
+}
+)";
         if(!demosaicProgram_.addShaderFromSourceCode(QOpenGLShader::Vertex, vertSrc))
            QMessageBox::critical(this, tr("Shader compile failure"),
                                  tr("Failed to compile %1:\n%2").arg("demosaic vertex shader").arg(demosaicProgram_.log()));
@@ -185,6 +239,7 @@ uniform float marginLeft, marginRight, marginTop, marginBottom;
 uniform vec3 whiteBalanceCoefs;
 uniform mat3 cam2srgb;
 uniform bool verticalInversion;
+uniform bool reducePepperNoise;
 out vec4 linearSRGB; // w-component is 1 if any raw component is saturated
 
 float samplePhotoSite(const vec2 pos, const vec2 offset)
@@ -418,6 +473,16 @@ void ImageCanvas::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
+    glGenTextures(1, &denoisedImageTex_);
+    glBindTexture(GL_TEXTURE_2D, denoisedImageTex_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glGenFramebuffers(1, &denoiseFBO_);
+    glBindFramebuffer(GL_FRAMEBUFFER, denoiseFBO_);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, denoisedImageTex_, 0);
+
     glGenTextures(1, &demosaicedImageTex_);
     glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -513,6 +578,12 @@ void ImageCanvas::demosaicImage()
         glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, sizes.width, sizes.height, 0, GL_RGB, GL_FLOAT, nullptr);
 
+        if(tools_->mustReducePepperNoise())
+        {
+            glBindTexture(GL_TEXTURE_2D, denoisedImageTex_);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, sizes.raw_width, sizes.raw_height, 0, GL_RED, GL_FLOAT, nullptr);
+        }
+
         glFinish();
         const auto t1 = currentTime();
         qDebug().nospace() << "Textures uploaded in " << double(t1-t0) << " seconds";
@@ -520,13 +591,26 @@ void ImageCanvas::demosaicImage()
 
     const auto t0 = currentTime();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
     const auto& sizes=libRaw->imgdata.sizes;
-    glViewport(0, 0, sizes.width, sizes.height);
 
     glBindVertexArray(vao_);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, rawImageTex_);
+
+    const float levelDivisor = libRaw->is_floating_point() ? 1 : 65535;
+    if(tools_->mustReducePepperNoise())
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, denoiseFBO_);
+        glViewport(0, 0, sizes.raw_width, sizes.raw_height);
+        denoiseProgram_.bind();
+        denoiseProgram_.setUniformValue("image", 0);
+        denoiseProgram_.setUniformValue("whiteLevel", float(libRaw->imgdata.rawdata.color.maximum/levelDivisor));
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindTexture(GL_TEXTURE_2D, denoisedImageTex_);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, demosaicFBO_);
+    glViewport(0, 0, sizes.width, sizes.height);
     demosaicProgram_.bind();
     demosaicProgram_.setUniformValue("image", 0);
     {
@@ -542,9 +626,8 @@ void ImageCanvas::demosaicImage()
             demosaicProgram_.setUniformValue("RED_FIRST", false);
     }
     const float blackLevel=getBlackLevel();
-    const float divisor = libRaw->is_floating_point() ? 1 : 65535;
-    demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/divisor));
-    demosaicProgram_.setUniformValue("whiteLevel", float(libRaw->imgdata.rawdata.color.maximum/divisor));
+    demosaicProgram_.setUniformValue("blackLevel", float(blackLevel/levelDivisor));
+    demosaicProgram_.setUniformValue("whiteLevel", float(libRaw->imgdata.rawdata.color.maximum/levelDivisor));
     {
         const auto& pre_mul=libRaw->imgdata.color.pre_mul;
         const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));

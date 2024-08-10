@@ -33,9 +33,13 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     connect(clippedHighlightsMarking_, &QCheckBox::stateChanged, this, &ToolsWidget::settingChanged);
     layout->addWidget(clippedHighlightsMarking_);
 
+    mustReducePepperNoise_ = new QCheckBox(tr("Reduce pepper noise"));
+    connect(mustReducePepperNoise_, &QCheckBox::stateChanged, this, &ToolsWidget::demosaicSettingChanged);
+    layout->addWidget(mustReducePepperNoise_);
+
     mustTransformToSRGB_ = new QCheckBox(tr("Transform from camera to sRGB"));
     mustTransformToSRGB_->setChecked(true);
-    connect(mustTransformToSRGB_, &QCheckBox::stateChanged, this, &ToolsWidget::srgbTransformationToggled);
+    connect(mustTransformToSRGB_, &QCheckBox::stateChanged, this, &ToolsWidget::demosaicSettingChanged);
     layout->addWidget(mustTransformToSRGB_);
 
     layout->addStretch();

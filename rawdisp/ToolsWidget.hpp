@@ -16,13 +16,14 @@ public:
     bool previewMode() const { return previewCheckBox_->isChecked(); }
     bool clippedHighlightsMarkingEnabled() const { return clippedHighlightsMarking_->isChecked(); }
     bool mustTransformToSRGB() const { return mustTransformToSRGB_->isChecked(); }
+    bool mustReducePepperNoise() const { return mustReducePepperNoise_->isChecked(); }
 
     void enablePreview() { previewCheckBox_->setEnabled(true); }
     void disablePreview() { previewCheckBox_->setEnabled(false); }
 
 signals:
     void settingChanged();
-    void srgbTransformationToggled();
+    void demosaicSettingChanged();
 
 private:
     Manipulator* exposureCompensation_=nullptr;
@@ -30,4 +31,5 @@ private:
     QCheckBox* previewCheckBox_=nullptr;
     QCheckBox* clippedHighlightsMarking_=nullptr;
     QCheckBox* mustTransformToSRGB_=nullptr;
+    QCheckBox* mustReducePepperNoise_=nullptr;
 };

@@ -61,10 +61,11 @@ private:
     float getBlackLevel();
 
 private:
-    GLuint rawImageTex_=0, demosaicedImageTex_=0;
+    GLuint rawImageTex_=0, demosaicedImageTex_=0, denoisedImageTex_=0;
     GLuint vao_=0;
     GLuint vbo_=0;
-    GLuint demosaicFBO_=0;
+    GLuint demosaicFBO_=0, denoiseFBO_=0;
+    QOpenGLShaderProgram denoiseProgram_;
     QOpenGLShaderProgram demosaicProgram_;
     QOpenGLShaderProgram displayProgram_;
     QPoint dragStartPos_;
