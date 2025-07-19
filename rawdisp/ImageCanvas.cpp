@@ -793,33 +793,56 @@ void ImageCanvas::keyPressEvent(QKeyEvent*const event)
     case Qt::Key_S:
         if(mods == Qt::ControlModifier && demosaicedImageReady_)
         {
-            const auto path = QFileDialog::getSaveFileName(this, "Save file as...", {}, "PNG images (*.png)");
+            QString selectedFilter;
+            const auto path = QFileDialog::getSaveFileName(this, "Save file as...", {}, "PNG images (*.png);;float32 image (*.f32)", &selectedFilter);
             if(path.isEmpty()) return;
-
             makeCurrent();
             glBindTexture(GL_TEXTURE_2D, demosaicedImageTex_);
 
             const int W = libRaw->imgdata.sizes.width;
             const int H = libRaw->imgdata.sizes.height;
-            QImage img(W, H, QImage::Format_RGBA8888);
             std::vector<GLfloat> data(4*W*H);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, data.data());
 
-            const auto coef = std::pow(10., tools_->exposureCompensation());
-            const auto p = img.bits();
-            const int stride = img.bytesPerLine() / sizeof p[0];
-            for(int j = 0; j < H; ++j)
+            if(selectedFilter.contains("(*.f32)"))
             {
-                for(int i = 0; i < W; ++i)
+                QFile out(path);
+                if(!out.open(QFile::WriteOnly))
                 {
-                    p[(H-1-j)*stride + 4*i + 0] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+0]*coef, 0., 1.));
-                    p[(H-1-j)*stride + 4*i + 1] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+1]*coef, 0., 1.));
-                    p[(H-1-j)*stride + 4*i + 2] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+2]*coef, 0., 1.));
-                    p[(H-1-j)*stride + 4*i + 3] = 255;
+                    QMessageBox::critical(this, "Error saving image",
+                                          QString("Failed to save F32 image: %1").arg(out.errorString()));
+                    return;
+                }
+                const uint16_t width = W, height = H;
+                out.write(reinterpret_cast<const char*>(&width), sizeof width);
+                out.write(reinterpret_cast<const char*>(&height), sizeof height);
+                out.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof data[0]);
+                if(!out.flush())
+                {
+                    QMessageBox::critical(this, "Error saving image",
+                                          QString("Failed to write F32 image: %1").arg(out.errorString()));
+                    return;
                 }
             }
-            if(!img.save(path))
-                QMessageBox::critical(this, "Error saving image", "Failed to save the image");
+            else
+            {
+                const auto coef = std::pow(10., tools_->exposureCompensation());
+                QImage img(W, H, QImage::Format_RGBA8888);
+                const auto p = img.bits();
+                const int stride = img.bytesPerLine() / sizeof p[0];
+                for(int j = 0; j < H; ++j)
+                {
+                    for(int i = 0; i < W; ++i)
+                    {
+                        p[(H-1-j)*stride + 4*i + 0] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+0]*coef, 0., 1.));
+                        p[(H-1-j)*stride + 4*i + 1] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+1]*coef, 0., 1.));
+                        p[(H-1-j)*stride + 4*i + 2] = 255*sRGBTransferFunction(std::clamp(data[4*(j*W+i)+2]*coef, 0., 1.));
+                        p[(H-1-j)*stride + 4*i + 3] = 255;
+                    }
+                }
+                if(!img.save(path))
+                    QMessageBox::critical(this, "Error saving image", "Failed to save the image");
+            }
         }
     }
     update();
