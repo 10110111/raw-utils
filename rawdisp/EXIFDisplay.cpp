@@ -20,10 +20,11 @@ QString formatExposureTime(Exiv2::Exifdatum const& datum)
     if(datum.typeId() != Exiv2::unsignedRational)
         return formatDefault(datum);
 
-    const auto [num,denom] = datum.toRational();
+    const auto pair = datum.toRational();
+    const uint32_t num = pair.first, denom = pair.second;
     if(denom==0)
         return formatDefault(datum);
-    const auto frac = double(unsigned(num))/unsigned(denom);
+    const auto frac = double(num)/denom;
     if(frac > 60)
     {
         const int min = std::floor(frac/60);
@@ -67,7 +68,8 @@ QString formatAperture(Exiv2::Exifdatum const& datum)
 {
     if(datum.typeId() != Exiv2::unsignedRational)
         return formatDefault(datum);
-    auto [num,denom] = datum.toRational();
+    const auto pair = datum.toRational();
+    const uint32_t num = pair.first, denom = pair.second;
     if(denom==0)
         return formatDefault(datum);
 
@@ -94,7 +96,8 @@ QString formatFocalLength(Exiv2::Exifdatum const& datum)
 {
     if(datum.typeId() != Exiv2::unsignedRational)
         return formatDefault(datum);
-    auto [num,denom] = datum.toRational();
+    const auto pair = datum.toRational();
+    const uint32_t num = pair.first, denom = pair.second;
     if(denom==0)
         return formatDefault(datum);
     if(double(num)/denom < 10)
