@@ -42,5 +42,10 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     connect(mustTransformToSRGB_, &QCheckBox::stateChanged, this, &ToolsWidget::demosaicSettingChanged);
     layout->addWidget(mustTransformToSRGB_);
 
+    mustApplyWhiteBalance_ = new QCheckBox(tr("Apply white balance"));
+    mustApplyWhiteBalance_->setChecked(true);
+    connect(mustApplyWhiteBalance_, &QCheckBox::stateChanged, this, &ToolsWidget::demosaicSettingChanged);
+    layout->addWidget(mustApplyWhiteBalance_);
+
     layout->addStretch();
 }

@@ -16,6 +16,7 @@ public:
     bool previewMode() const { return previewCheckBox_->isChecked(); }
     bool clippedHighlightsMarkingEnabled() const { return clippedHighlightsMarking_->isChecked(); }
     bool mustTransformToSRGB() const { return mustTransformToSRGB_->isChecked(); }
+    bool mustApplyWhiteBalance() const { return mustApplyWhiteBalance_->isChecked(); }
     bool mustReducePepperNoise() const { return mustReducePepperNoise_->isChecked(); }
 
     void enablePreview() { previewCheckBox_->setEnabled(true); }
@@ -31,5 +32,6 @@ private:
     QCheckBox* previewCheckBox_=nullptr;
     QCheckBox* clippedHighlightsMarking_=nullptr;
     QCheckBox* mustTransformToSRGB_=nullptr;
+    QCheckBox* mustApplyWhiteBalance_=nullptr;
     QCheckBox* mustReducePepperNoise_=nullptr;
 };

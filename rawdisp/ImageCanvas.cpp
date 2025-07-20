@@ -639,7 +639,8 @@ void ImageCanvas::demosaicImage()
         const auto& pre_mul=libRaw->imgdata.color.pre_mul;
         const float preMulMax=*std::max_element(std::begin(pre_mul),std::end(pre_mul));
         const auto daylightWBCoefs = QVector3D(pre_mul[0],pre_mul[1],pre_mul[2])/preMulMax;
-        demosaicProgram_.setUniformValue("whiteBalanceCoefs", daylightWBCoefs);
+        demosaicProgram_.setUniformValue("whiteBalanceCoefs",
+                                         tools_->mustApplyWhiteBalance() ? daylightWBCoefs : QVector3D(1,1,1));
     }
     {
         const auto& camrgb = libRaw->imgdata.rawdata.color.rgb_cam;
