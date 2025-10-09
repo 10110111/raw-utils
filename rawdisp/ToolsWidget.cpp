@@ -47,5 +47,15 @@ ToolsWidget::ToolsWidget(QWidget* parent)
     connect(mustApplyWhiteBalance_, &QCheckBox::stateChanged, this, &ToolsWidget::demosaicSettingChanged);
     layout->addWidget(mustApplyWhiteBalance_);
 
+    {
+        const auto hbox = new QHBoxLayout;
+        hbox->addWidget(new QLabel(tr("Color channel:")));
+        colorChannel_ = new QComboBox;
+        colorChannel_->addItems({tr("sRGB colored"), tr("sRGB red"), tr("sRGB green"), tr("sRGB blue")});
+        connect(colorChannel_, qOverload<int>(&QComboBox::currentIndexChanged), this, &ToolsWidget::settingChanged);
+        hbox->addWidget(colorChannel_);
+        layout->addLayout(hbox);
+    }
+
     layout->addStretch();
 }

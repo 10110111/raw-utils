@@ -82,4 +82,5 @@ private:
     bool demosaicedImageReady_=false;
     bool demosaicStarted_=false;
     bool dragging_=false;
+    int colorChannelToShow_=0;
 };

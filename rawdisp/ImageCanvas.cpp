@@ -421,8 +421,14 @@ uniform sampler2D sRGBLinearImage;
 uniform float exposureCompensationCoef;
 uniform bool showClippedHighlights;
 uniform bool demosaicedImageInverted;
+uniform int channel;
 in vec2 texCoord;
 out vec4 color;
+
+#define CH_RGB 0
+#define CH_RED 1
+#define CH_GREEN 2
+#define CH_BLUE 3
 
 vec3 sRGBTransferFunction(const vec3 c)
 {
@@ -438,6 +444,13 @@ void main()
         texcoordToUse.t = 1 - texcoordToUse.t;
     const vec4 linearSRGB = texture(sRGBLinearImage, texcoordToUse);
     color = vec4(sRGBTransferFunction(linearSRGB.rgb*exposureCompensationCoef), 1);
+    switch(channel)
+    {
+    case CH_RGB  : break;
+    case CH_RED  : color.rgb = color.rrr; break;
+    case CH_GREEN: color.rgb = color.ggg; break;
+    case CH_BLUE : color.rgb = color.bbb; break;
+    }
     if(showClippedHighlights)
     {
         if(linearSRGB.w>0)
@@ -881,6 +894,7 @@ void ImageCanvas::renderLastValidImage()
     displayProgram_.setUniformValue("showClippedHighlights", tools_->clippedHighlightsMarkingEnabled());
     displayProgram_.setUniformValue("exposureCompensationCoef", float(std::pow(10., tools_->exposureCompensation())));
     displayProgram_.setUniformValue("demosaicedImageInverted", demosaicedImageInverted_);
+    displayProgram_.setUniformValue("channel", tools_->colorChannelToShow());
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
