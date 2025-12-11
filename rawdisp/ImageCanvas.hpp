@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <libraw/libraw.h>
 #include <QImage>
 #include <QFuture>
